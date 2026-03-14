@@ -1,0 +1,16 @@
+{
+  "name": "ai-learning-platform",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:auth": "npm run dev -w @ai-learning-platform/auth-service"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
