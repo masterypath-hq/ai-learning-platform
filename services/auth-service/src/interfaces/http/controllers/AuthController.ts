@@ -4,9 +4,11 @@ import { SignUpRequest } from "../request/SignUpRequest.js";
 import { SignInRequest } from "../request/SignInRequest.js";
 import { ForgotPasswordRequest } from "../request/ForgotPasswordRequest.js";
 import { ResetPasswordRequest } from "../request/ResetPasswordRequest.js";
+import { GoogleCallbackRequest } from "../request/GoogleCallbackRequest.js";
 
 const HTTP = {
   OK: 200,
+  FOUND: 302,
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
   CONFLICT: 409,
@@ -23,7 +25,10 @@ function getResetLinkBaseUrl(req: Request): string {
 
 /** Controller: HTTP → Request objects → Service. (SOLID: S, D — depends on IAuthService.) */
 export class AuthController {
-  constructor(private readonly authService: IAuthService) {}
+  constructor(
+    private readonly authService: IAuthService,
+    private readonly googleRedirectFrontendUrl: string
+  ) {}
 
   async signUp(req: Request, res: Response): Promise<void> {
     const parsed = SignUpRequest.fromBody(req.body);
@@ -59,6 +64,40 @@ export class AuthController {
     } catch (e) {
       if (e instanceof Error && e.message === "INVALID_CREDENTIALS") {
         res.status(HTTP.UNAUTHORIZED).json({ error: "Invalid email or password." });
+        return;
+      }
+      if (e instanceof Error && e.message === "NO_PASSWORD_SET") {
+        res.status(HTTP.UNPROCESSABLE).json({
+          error: "This account uses Google Sign-In. Please sign in with Google.",
+        });
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async googleRedirect(_req: Request, res: Response): Promise<void> {
+    const url = this.authService.getGoogleAuthUrl();
+    res.redirect(HTTP.FOUND, url);
+  }
+
+  async googleCallback(req: Request, res: Response): Promise<void> {
+    const parsed = GoogleCallbackRequest.fromQuery(req.query);
+    if (!parsed.ok) {
+      res.status(HTTP.BAD_REQUEST).json({ error: parsed.error });
+      return;
+    }
+    try {
+      const result = await this.authService.googleSignIn(parsed.request.code);
+      const params = new URLSearchParams({
+        token: result.tokens.accessToken,
+        userId: result.userId,
+        isNewUser: String(result.isNewUser),
+      });
+      res.redirect(HTTP.FOUND, `${this.googleRedirectFrontendUrl}?${params.toString()}`);
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("GOOGLE_")) {
+        res.status(HTTP.UNPROCESSABLE).json({ error: "Google sign-in failed. Please try again." });
         return;
       }
       throw e;

@@ -34,6 +34,8 @@ export class SignUpAction implements ISignUpAction {
       name: name?.trim() ?? null,
       createdAt: now,
       emailVerifiedAt: null,
+      authProvider: "local",
+      googleId: null,
     });
 
     await this.userRepo.save(user);

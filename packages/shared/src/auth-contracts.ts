@@ -45,6 +45,13 @@ export interface SignInResponse {
   tokens: AuthTokens;
 }
 
+export interface GoogleSignInResponse {
+  userId: string;
+  email: string;
+  tokens: AuthTokens;
+  isNewUser: boolean;
+}
+
 export interface ForgotPasswordResponse {
   message: string;
 }
@@ -57,6 +64,7 @@ export interface ResetPasswordResponse {
 
 export const AUTH_EVENTS = {
   USER_REGISTERED: "auth.user.registered.v1",
+  USER_SIGNED_IN_GOOGLE: "auth.user.signed_in_google.v1",
   PASSWORD_RESET_REQUESTED: "auth.password_reset.requested.v1",
   PASSWORD_RESET_COMPLETED: "auth.password_reset.completed.v1",
 } as const;
@@ -66,6 +74,14 @@ export interface UserRegisteredPayload {
   email: string;
   name?: string;
   registeredAt: string; // ISO 8601
+}
+
+export interface GoogleSignInPayload {
+  userId: string;
+  email: string;
+  isNewUser: boolean;
+  linkedExistingAccount: boolean;
+  signedInAt: string;
 }
 
 export interface PasswordResetRequestedPayload {

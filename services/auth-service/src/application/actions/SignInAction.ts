@@ -17,6 +17,8 @@ export class SignInAction implements ISignInAction {
     const user = await this.userRepo.findByEmail(email.toLowerCase().trim());
     if (!user) throw new Error("INVALID_CREDENTIALS");
 
+    if (!user.passwordHash) throw new Error("NO_PASSWORD_SET");
+
     const valid = await this.passwordHasher.verify(password, user.passwordHash);
     if (!valid) throw new Error("INVALID_CREDENTIALS");
 

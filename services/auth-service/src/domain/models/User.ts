@@ -2,13 +2,17 @@
  * User model — domain entity. No framework or DB imports. (SOLID: S — single responsibility.)
  */
 
+export type AuthProvider = "local" | "google";
+
 export interface UserProps {
   id: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
   name: string | null;
   createdAt: Date;
   emailVerifiedAt: Date | null;
+  authProvider: AuthProvider;
+  googleId: string | null;
 }
 
 export class User {
@@ -26,7 +30,7 @@ export class User {
     return this.props.email;
   }
 
-  get passwordHash(): string {
+  get passwordHash(): string | null {
     return this.props.passwordHash;
   }
 
@@ -40,6 +44,14 @@ export class User {
 
   get emailVerifiedAt(): Date | null {
     return this.props.emailVerifiedAt;
+  }
+
+  get authProvider(): AuthProvider {
+    return this.props.authProvider;
+  }
+
+  get googleId(): string | null {
+    return this.props.googleId;
   }
 
   toJSON(): UserProps {

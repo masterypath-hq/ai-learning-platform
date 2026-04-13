@@ -13,8 +13,10 @@ import type { IEmailSender } from "./application/interfaces/IEmailSender.js";
 import { InMemoryEventPublisher } from "./infrastructure/events/InMemoryEventPublisher.js";
 import { SignUpAction } from "./application/actions/SignUpAction.js";
 import { SignInAction } from "./application/actions/SignInAction.js";
+import { GoogleSignInAction } from "./application/actions/GoogleSignInAction.js";
 import { ForgotPasswordAction } from "./application/actions/ForgotPasswordAction.js";
 import { ResetPasswordAction } from "./application/actions/ResetPasswordAction.js";
+import { GoogleAuthProvider } from "./infrastructure/google/GoogleAuthProvider.js";
 import { AuthService } from "./application/services/AuthService.js";
 import { AuthController } from "./interfaces/http/controllers/AuthController.js";
 import { AuthResource } from "./interfaces/http/resources/AuthResource.js";
@@ -131,6 +133,25 @@ export async function createCompositionRoot() {
   }
   const eventPublisher = new InMemoryEventPublisher();
 
+  const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "";
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
+  const googleRedirectUri =
+    process.env.GOOGLE_REDIRECT_URI ?? "http://localhost:3001/api/v1/auth/google/callback";
+  const googleRedirectFrontendUrl =
+    process.env.GOOGLE_REDIRECT_FRONTEND_URL ?? "http://localhost:3000/auth/callback";
+
+  const googleAuthProvider = new GoogleAuthProvider(
+    googleClientId,
+    googleClientSecret,
+    googleRedirectUri
+  );
+
+  if (googleClientId) {
+    console.log("[auth-service] Google OAuth configured");
+  } else {
+    console.log("[auth-service] GOOGLE_CLIENT_ID not set — Google sign-in disabled");
+  }
+
   const signUpAction = new SignUpAction(
     userRepo,
     passwordHasher,
@@ -139,6 +160,13 @@ export async function createCompositionRoot() {
     eventPublisher
   );
   const signInAction = new SignInAction(userRepo, passwordHasher, tokenService);
+  const googleSignInAction = new GoogleSignInAction(
+    userRepo,
+    tokenService,
+    googleAuthProvider,
+    emailSender,
+    eventPublisher
+  );
   const forgotPasswordAction = new ForgotPasswordAction(
     userRepo,
     resetTokenRepo,
@@ -156,10 +184,12 @@ export async function createCompositionRoot() {
   const authService = new AuthService(
     signUpAction,
     signInAction,
+    googleSignInAction,
     forgotPasswordAction,
-    resetPasswordAction
+    resetPasswordAction,
+    googleAuthProvider
   );
-  const authController = new AuthController(authService);
+  const authController = new AuthController(authService, googleRedirectFrontendUrl);
   const app = new App(authController);
 
   return { app, pool };
