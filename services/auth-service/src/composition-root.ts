@@ -2,7 +2,14 @@ import dns from "node:dns";
 import pg from "pg";
 import { PgUserRepository } from "./infrastructure/persistence/PgUserRepository.js";
 import { PgPasswordResetTokenRepository } from "./infrastructure/persistence/PgPasswordResetTokenRepository.js";
+import { PgRefreshTokenRepository } from "./infrastructure/persistence/PgRefreshTokenRepository.js";
 import { JwtTokenService } from "./infrastructure/jwt/JwtTokenService.js";
+import { SessionTokensIssuer } from "./application/services/SessionTokensIssuer.js";
+import { GetMeAction } from "./application/actions/GetMeAction.js";
+import { RefreshTokensAction } from "./application/actions/RefreshTokensAction.js";
+import { RedisProfileCache } from "./infrastructure/cache/RedisProfileCache.js";
+import { getRedisClient } from "./lib/redis.js";
+import { createBearerAuthMiddleware } from "./interfaces/http/middleware/bearerAuth.js";
 import { BcryptPasswordHasher } from "./infrastructure/password/BcryptPasswordHasher.js";
 import { ConsoleEmailSender } from "./infrastructure/email/ConsoleEmailSender.js";
 import { ResendEmailSender } from "./infrastructure/email/ResendEmailSender.js";
@@ -112,8 +119,26 @@ export async function createCompositionRoot() {
 
   const userRepo = new PgUserRepository(pool);
   const resetTokenRepo = new PgPasswordResetTokenRepository(pool);
+  const refreshTokenRepo = new PgRefreshTokenRepository(pool);
   const jwtSecret = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
   const tokenService = new JwtTokenService(jwtSecret);
+  const sessionTokensIssuer = new SessionTokensIssuer(tokenService, refreshTokenRepo);
+
+  const redisUrl = process.env.REDIS_URL?.trim();
+  if (!redisUrl) {
+    console.error(
+      "[auth-service] REDIS_URL is not set. GET /me and profile caching require Redis. Set REDIS_URL (e.g. redis://localhost:6379)."
+    );
+  }
+  const redis = redisUrl ? getRedisClient(redisUrl) : null;
+  const profileCache = redis ? new RedisProfileCache(redis) : null;
+  if (!profileCache) {
+    throw new Error("REDIS_URL is required for auth-service (profile cache).");
+  }
+
+  const getMeAction = new GetMeAction(userRepo, profileCache);
+  const refreshTokensAction = new RefreshTokensAction(userRepo, refreshTokenRepo, sessionTokensIssuer);
+  const bearerAuth = createBearerAuthMiddleware(tokenService);
   const passwordHasher = new BcryptPasswordHasher();
   const resendApiKey = process.env.RESEND_API_KEY;
   const resendFrom = process.env.RESEND_FROM_ADDRESS ?? "onboarding@resend.dev";
@@ -155,14 +180,14 @@ export async function createCompositionRoot() {
   const signUpAction = new SignUpAction(
     userRepo,
     passwordHasher,
-    tokenService,
+    sessionTokensIssuer,
     emailSender,
     eventPublisher
   );
-  const signInAction = new SignInAction(userRepo, passwordHasher, tokenService);
+  const signInAction = new SignInAction(userRepo, passwordHasher, sessionTokensIssuer);
   const googleSignInAction = new GoogleSignInAction(
     userRepo,
-    tokenService,
+    sessionTokensIssuer,
     googleAuthProvider,
     emailSender,
     eventPublisher
@@ -187,10 +212,12 @@ export async function createCompositionRoot() {
     googleSignInAction,
     forgotPasswordAction,
     resetPasswordAction,
+    getMeAction,
+    refreshTokensAction,
     googleAuthProvider
   );
   const authController = new AuthController(authService, googleRedirectFrontendUrl);
-  const app = new App(authController);
+  const app = new App(authController, bearerAuth);
 
   return { app, pool };
 }

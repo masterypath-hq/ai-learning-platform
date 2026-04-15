@@ -3,12 +3,14 @@
  */
 
 export type AuthProvider = "local" | "google";
+export type PlanTier = "free" | "pro" | "institution";
 
 export interface UserProps {
   id: string;
   email: string;
   passwordHash: string | null;
   name: string | null;
+  planTier: PlanTier;
   createdAt: Date;
   emailVerifiedAt: Date | null;
   authProvider: AuthProvider;
@@ -36,6 +38,10 @@ export class User {
 
   get name(): string | null {
     return this.props.name;
+  }
+
+  get planTier(): PlanTier {
+    return this.props.planTier;
   }
 
   get createdAt(): Date {

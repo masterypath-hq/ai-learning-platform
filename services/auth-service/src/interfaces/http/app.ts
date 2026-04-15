@@ -1,16 +1,16 @@
 import express from "express";
-import type { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction, RequestHandler } from "express";
 import type { AuthController } from "./controllers/AuthController.js";
 import { AuthResource } from "./resources/AuthResource.js";
 
 export class App {
   private readonly express: express.Express;
 
-  constructor(authController: AuthController) {
+  constructor(authController: AuthController, bearerAuth: RequestHandler) {
     this.express = express();
     this.express.use(express.json());
 
-    const authResource = new AuthResource(this.express, authController);
+    const authResource = new AuthResource(this.express, authController, bearerAuth);
     authResource.register();
 
     this.express.get("/health", (_req, res) => {

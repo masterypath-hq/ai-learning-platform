@@ -54,22 +54,38 @@ Create a `.env` from `.env.example`. Summary:
 
 ## Database: Supabase (Postgres)
 
-The auth service uses **Supabase** as its database (standard Postgres). No code changes are required: set `DATABASE_URL` to your Supabase connection string.
+The auth service uses **Supabase** (or any Postgres). Set **`DATABASE_URL`** in the repo root `.env`.
 
-### First-time setup: create tables (run once)
+### Migrations (tracked, repeatable)
 
-There is no migration runner. The **user table** (and `password_reset_tokens`) are created by running the schema once:
+We use **[node-pg-migrate](https://github.com/salsita/node-pg-migrate)**. Applied migrations are recorded in the **`pgmigrations`** table.
 
-1. Open [Supabase Dashboard](https://supabase.com/dashboard) → your project → **SQL Editor**.
-2. Copy the full contents of **`services/auth-service/schema.sql`** (in this repo).
-3. Paste into the SQL Editor and click **Run**.
+From the **repo root** (loads `.env` via `--envPath`):
 
-That creates:
+```bash
+# Apply pending migrations
+npm run migrate:auth
 
-- **`users`** — `id`, `email`, `password_hash`, `name`, `created_at`, `email_verified_at`
-- **`password_reset_tokens`** — for forgot-password flow
+# Or from the auth-service workspace
+cd services/auth-service && npm run migrate:up
+```
 
-After that, the auth service can sign up and sign in users. You only need to run it once per database.
+**`DATABASE_URL`** must be set (see below).
+
+| Script | Purpose |
+|--------|---------|
+| `npm run migrate:up` | Run all pending migrations (default: single transaction) |
+| `npm run migrate:down` | Revert one migration (initial migration has no safe `down`) |
+| `npm run migrate:create -- my_change` | Create `db/migrations/<timestamp>_my_change.js` (run from `services/auth-service`) |
+| `npm run migrate:fake` | Mark pending migrations as applied **without** running SQL (use once if the DB already matches the schema) |
+
+Migration files live in **`services/auth-service/db/migrations/`**. Legacy SQL snapshots are in **`migrations/archive/`** (historical only).
+
+**Dry run (prints SQL only):**
+
+```bash
+cd services/auth-service && npx node-pg-migrate up --dry-run --migrations-dir db/migrations --envPath ../../.env
+```
 
 ### Connection string
 
@@ -82,16 +98,17 @@ The service uses the `pg` driver and works with any Postgres-compatible host, in
 ## Local development
 
 **Option A — Supabase (recommended)**  
-1. Create a Supabase project and run `schema.sql` in the SQL Editor (see above).  
-2. Set `DATABASE_URL` to your Supabase connection string.  
-3. From repo root: `npm run dev:auth`
+1. Create a Supabase project and set `DATABASE_URL` in `.env`.  
+2. Run **`npm run migrate:auth`** from the repo root.  
+3. `npm run dev:auth`
 
 **Option B — Local Postgres (Docker)**  
 1. `docker compose --profile local up -d` (starts `auth-db` + `auth-service`).  
-2. Schema is applied automatically to the local DB.
+2. Schema is applied automatically from `schema.sql` on first container init.  
+3. To use the same migration runner against that DB: `DATABASE_URL=postgresql://auth:auth@localhost:5433/auth npm run migrate:auth` (port **5433** maps to the container in `docker-compose.yml`).
 
 **Option C — Local Postgres (manual)**  
-1. Start Postgres, create a database, then run `psql $DATABASE_URL -f services/auth-service/schema.sql`.  
+1. Start Postgres, create a database, then run **`npm run migrate:auth`** with `DATABASE_URL` set, or `psql $DATABASE_URL -f services/auth-service/schema.sql`.  
 2. `npm run dev:auth` with `DATABASE_URL` set.
 
 Env: `DATABASE_URL` (required for Supabase or remote Postgres), `JWT_SECRET`, `PORT` (default 3001), `RESET_LINK_BASE_URL`.

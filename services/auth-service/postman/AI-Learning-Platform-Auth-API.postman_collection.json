@@ -1,25 +1,42 @@
 {
   "info": {
     "name": "AI Learning Platform — Auth API",
-    "description": "Auth microservice: sign up, sign in, Google OAuth, forgot password, reset password.\n\n**Base URL:** Use collection variable `baseUrl` (default: `http://localhost:3001`).",
+    "description": "All requests go through the **API gateway** (default `http://localhost:4000`). Paths use **`/api/auth/...`** (no `/v1`); the gateway rewrites to `/api/v1/auth/...` on the auth service.\n\n**Variables**\n- `baseUrl` — gateway URL (default `http://localhost:4000`)\n- `authServiceUrl` — optional; only if you bypass the gateway and call auth directly on port 3001\n- `accessToken` / `refreshToken` — set by Tests on **Sign in** / **Sign up** / **Refresh tokens**\n\n**Password reset emails:** Set `RESET_LINK_BASE_URL=http://localhost:4000` in `.env` so links look like `http://localhost:4000/reset-password?token=…`. The gateway **redirects** to `FRONTEND_URL/reset-password?token=…` (SPA). Your app then calls `POST /api/auth/reset-password` on the gateway.\n\n**Google OAuth:** Register the callback URL in Google Cloud Console (e.g. `http://localhost:4000/api/auth/google/callback` when using the gateway).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3001" },
-    { "key": "accessToken", "value": "" }
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "authServiceUrl", "value": "http://localhost:3001" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" }
   ],
   "item": [
     {
-      "name": "Health",
+      "name": "Gateway health",
       "request": {
         "method": "GET",
         "header": [],
         "url": "{{baseUrl}}/health",
-        "description": "Service health check. Returns `200` with `{ \"status\": \"ok\", \"service\": \"auth\" }`."
+        "description": "Gateway health: `{ \"status\": \"ok\", \"service\": \"gateway\" }`. Auth service has its own `/health` on `{{authServiceUrl}}` only if you call it directly."
       }
     },
     {
       "name": "Sign up",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  const j = pm.response.json();",
+              "  if (j.tokens?.accessToken) pm.collectionVariables.set('accessToken', j.tokens.accessToken);",
+              "  if (j.tokens?.refreshToken) pm.collectionVariables.set('refreshToken', j.tokens.refreshToken);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
@@ -29,12 +46,27 @@
           "mode": "raw",
           "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"name\": \"Jane Doe\"\n}"
         },
-        "url": "{{baseUrl}}/api/v1/auth/sign-up",
-        "description": "Register a new user.\n\n**Request body:**\n- `email` (required)\n- `password` (required)\n- `name` (optional)\n\n**Success (200):** `userId`, `email`, `tokens.accessToken`, `tokens.expiresInSeconds`.\n\n**Errors:**\n- `400` — Missing email or password\n- `409` — An account with this email already exists"
+        "url": "{{baseUrl}}/api/auth/sign-up",
+        "description": "`POST /api/auth/sign-up` → auth service `/api/v1/auth/sign-up`.\n\n**Success (200):** `userId`, `email`, `tokens` (access + refresh + expiries)."
       }
     },
     {
       "name": "Sign in",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  const j = pm.response.json();",
+              "  if (j.tokens?.accessToken) pm.collectionVariables.set('accessToken', j.tokens.accessToken);",
+              "  if (j.tokens?.refreshToken) pm.collectionVariables.set('refreshToken', j.tokens.refreshToken);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
@@ -44,8 +76,49 @@
           "mode": "raw",
           "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
         },
-        "url": "{{baseUrl}}/api/v1/auth/sign-in",
-        "description": "Sign in with email and password.\n\n**Request body:**\n- `email` (required)\n- `password` (required)\n\n**Success (200):** `userId`, `email`, `tokens.accessToken`, `tokens.expiresInSeconds`.\n\n**Errors:**\n- `400` — Missing email or password\n- `401` — Invalid email or password"
+        "url": "{{baseUrl}}/api/auth/sign-in",
+        "description": "`POST /api/auth/sign-in` — public; no Bearer token."
+      }
+    },
+    {
+      "name": "Refresh tokens",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  const j = pm.response.json();",
+              "  if (j.tokens?.accessToken) pm.collectionVariables.set('accessToken', j.tokens.accessToken);",
+              "  if (j.tokens?.refreshToken) pm.collectionVariables.set('refreshToken', j.tokens.refreshToken);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/refresh",
+        "description": "Public — no JWT. Body: `{ \"refreshToken\": \"...\" }`."
+      }
+    },
+    {
+      "name": "Get me (profile)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": "{{baseUrl}}/api/auth/me",
+        "description": "Protected — gateway validates JWT, then forwards to auth. Profile cached in Redis (15 min) in auth service."
       }
     },
     {
@@ -53,8 +126,8 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": "{{baseUrl}}/api/v1/auth/google",
-        "description": "Initiates Google OAuth flow. Redirects (302) to Google's consent screen.\n\n**How to test:** Open this URL in a browser (not Postman) — it's a redirect flow.\n\n`http://localhost:3001/api/v1/auth/google`\n\nAfter the user approves, Google redirects back to the callback endpoint, which exchanges the code and redirects to the frontend with a JWT token."
+        "url": "{{baseUrl}}/api/auth/google",
+        "description": "Open in a **browser**. Ensure `GOOGLE_REDIRECT_URI` matches this flow (e.g. `http://localhost:4000/api/auth/google/callback`)."
       }
     },
     {
@@ -62,16 +135,8 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/auth/google/callback?code=<auth-code-from-google>&state=<state-param>",
-          "host": ["{{baseUrl}}"],
-          "path": ["api", "v1", "auth", "google", "callback"],
-          "query": [
-            { "key": "code", "value": "<auth-code-from-google>" },
-            { "key": "state", "value": "<state-param>" }
-          ]
-        },
-        "description": "Google OAuth callback (called by Google after user consent — not invoked manually).\n\n**Query params:**\n- `code` (required) — authorization code from Google\n- `state` (required) — CSRF state parameter\n\n**Success (302):** Redirects to `GOOGLE_REDIRECT_FRONTEND_URL` with query params: `token`, `userId`, `isNewUser`.\n\n**Errors:**\n- `400` — Missing code/state or Google returned an error\n- `422` — Google token exchange failed"
+        "url": "{{baseUrl}}/api/auth/google/callback?code=<auth-code-from-google>&state=<state-param>",
+        "description": "Normally called by Google, not Postman."
       }
     },
     {
@@ -85,8 +150,8 @@
           "mode": "raw",
           "raw": "{\n  \"email\": \"user@example.com\"\n}"
         },
-        "url": "{{baseUrl}}/api/v1/auth/forgot-password",
-        "description": "Request a password reset link. If an account exists, an email is sent (or logged in dev).\n\n**Request body:**\n- `email` (required)\n\n**Success (200):** `{ \"message\": \"If an account exists, you will receive a reset link.\" }` (same message whether or not account exists, for privacy).\n\n**Errors:**\n- `400` — Missing email"
+        "url": "{{baseUrl}}/api/auth/forgot-password",
+        "description": "Public. Email link is built from `RESET_LINK_BASE_URL` + `/reset-password?token=…` (set base to `http://localhost:4000` so the link hits the gateway; gateway redirects to the frontend)."
       }
     },
     {
@@ -100,8 +165,17 @@
           "mode": "raw",
           "raw": "{\n  \"token\": \"<token-from-email-link>\",\n  \"newPassword\": \"NewSecurePass456!\"\n}"
         },
-        "url": "{{baseUrl}}/api/v1/auth/reset-password",
-        "description": "Set a new password using the token from the forgot-password email link.\n\n**Request body:**\n- `token` (required) — from the `?token=...` query param in the reset link\n- `newPassword` (required)\n\n**Success (200):** `{ \"message\": \"Password has been reset. You can sign in with your new password.\" }`\n\n**Errors:**\n- `400` — Missing token or newPassword\n- `422` — Invalid or expired reset link, or user not found"
+        "url": "{{baseUrl}}/api/auth/reset-password",
+        "description": "Public."
+      }
+    },
+    {
+      "name": "Optional — Auth service health (direct)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{authServiceUrl}}/health",
+        "description": "Bypasses gateway. Use only for debugging; production clients should use the gateway only."
       }
     }
   ]

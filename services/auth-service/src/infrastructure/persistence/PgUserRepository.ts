@@ -1,10 +1,10 @@
 import type { Pool } from "pg";
 import { User } from "../../domain/models/User.js";
-import type { AuthProvider } from "../../domain/models/User.js";
+import type { AuthProvider, PlanTier } from "../../domain/models/User.js";
 import type { IUserRepository } from "../../application/interfaces/IUserRepository.js";
 
 const SELECT_COLS =
-  "id, email, password_hash, name, created_at, email_verified_at, auth_provider, google_id";
+  "id, email, password_hash, name, plan_tier, created_at, email_verified_at, auth_provider, google_id";
 
 export class PgUserRepository implements IUserRepository {
   constructor(private readonly pool: Pool) {}
@@ -12,12 +12,13 @@ export class PgUserRepository implements IUserRepository {
   async save(user: User): Promise<void> {
     const props = user.toJSON();
     await this.pool.query(
-      `INSERT INTO users (id, email, password_hash, name, created_at, email_verified_at, auth_provider, google_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO users (id, email, password_hash, name, plan_tier, created_at, email_verified_at, auth_provider, google_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (id) DO UPDATE SET
          email = EXCLUDED.email,
          password_hash = EXCLUDED.password_hash,
          name = EXCLUDED.name,
+         plan_tier = EXCLUDED.plan_tier,
          email_verified_at = EXCLUDED.email_verified_at,
          auth_provider = EXCLUDED.auth_provider,
          google_id = EXCLUDED.google_id`,
@@ -26,6 +27,7 @@ export class PgUserRepository implements IUserRepository {
         props.email,
         props.passwordHash,
         props.name,
+        props.planTier,
         props.createdAt,
         props.emailVerifiedAt,
         props.authProvider,
@@ -66,6 +68,7 @@ export class PgUserRepository implements IUserRepository {
     email: string;
     password_hash: string | null;
     name: string | null;
+    plan_tier: string;
     created_at: Date;
     email_verified_at: Date | null;
     auth_provider: string;
@@ -76,6 +79,7 @@ export class PgUserRepository implements IUserRepository {
       email: row.email,
       passwordHash: row.password_hash,
       name: row.name,
+      planTier: row.plan_tier as PlanTier,
       createdAt: row.created_at,
       emailVerifiedAt: row.email_verified_at,
       authProvider: row.auth_provider as AuthProvider,

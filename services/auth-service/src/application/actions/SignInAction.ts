@@ -1,16 +1,14 @@
 import type { IUserRepository } from "../interfaces/IUserRepository.js";
 import type { IPasswordHasher } from "../interfaces/IPasswordHasher.js";
-import type { ITokenService } from "../interfaces/ITokenService.js";
+import type { ISessionTokensIssuer } from "../interfaces/ISessionTokensIssuer.js";
 import type { SignInResponse } from "@ai-learning-platform/shared";
 import type { ISignInAction } from "../interfaces/ISignInAction.js";
-
-const ACCESS_TOKEN_EXPIRES_SECONDS = 900;
 
 export class SignInAction implements ISignInAction {
   constructor(
     private readonly userRepo: IUserRepository,
     private readonly passwordHasher: IPasswordHasher,
-    private readonly tokenService: ITokenService
+    private readonly sessionTokensIssuer: ISessionTokensIssuer
   ) {}
 
   async execute(email: string, password: string): Promise<SignInResponse> {
@@ -22,15 +20,17 @@ export class SignInAction implements ISignInAction {
     const valid = await this.passwordHasher.verify(password, user.passwordHash);
     if (!valid) throw new Error("INVALID_CREDENTIALS");
 
-    const accessToken = await this.tokenService.signAccessToken(
-      { userId: user.id, email: user.email },
-      ACCESS_TOKEN_EXPIRES_SECONDS
-    );
+    const session = await this.sessionTokensIssuer.issueForUser(user);
 
     return {
       userId: user.id,
       email: user.email,
-      tokens: { accessToken, expiresInSeconds: ACCESS_TOKEN_EXPIRES_SECONDS },
+      tokens: {
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        expiresInSeconds: session.expiresInSeconds,
+        refreshExpiresInSeconds: session.refreshExpiresInSeconds,
+      },
     };
   }
 }

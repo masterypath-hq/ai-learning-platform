@@ -4,6 +4,8 @@ import type {
   GoogleSignInResponse,
   ForgotPasswordResponse,
   ResetPasswordResponse,
+  UserProfileResponse,
+  RefreshTokensResponse,
 } from "@ai-learning-platform/shared";
 
 /** Port for auth operations. Controller depends on this abstraction (DIP). */
@@ -14,4 +16,6 @@ export interface IAuthService {
   getGoogleAuthUrl(): string;
   forgotPassword(email: string, resetLinkBaseUrl: string): Promise<ForgotPasswordResponse>;
   resetPassword(token: string, newPassword: string): Promise<ResetPasswordResponse>;
+  getMe(userId: string): Promise<UserProfileResponse>;
+  refreshTokens(refreshToken: string): Promise<RefreshTokensResponse>;
 }

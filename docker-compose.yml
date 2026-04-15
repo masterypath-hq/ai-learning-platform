@@ -22,6 +22,18 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   auth-service:
     build:
       context: .
@@ -31,11 +43,32 @@ services:
     environment:
       PORT: 3001
       ENV_FILE_PATH: /app/.env
+      REDIS_URL: redis://redis:6379
     volumes:
-      # Mount .env from repo root so the app can load DATABASE_URL (avoids env_file issues)
       - ./.env:/app/.env:ro
-    # No depends_on: with Supabase you run only this service (set DATABASE_URL).
-    # With local Postgres use: docker compose --profile local up -d (auth-db starts first; allow a few seconds for DB to be ready).
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_URL: redis://redis:6379
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      AI_SERVICE_URL: http://ai-service:5002
+      COURSE_SERVICE_URL: http://course-service:5003
+      PROGRESS_SERVICE_URL: http://progress-service:5004
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   auth-db-data:
+  redis-data:

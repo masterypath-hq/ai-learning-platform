@@ -1,5 +1,6 @@
 import "./load-env.js";
 import { createCompositionRoot } from "./composition-root.js";
+import { disconnectRedis } from "./lib/redis.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -13,6 +14,7 @@ async function main() {
   const shutdown = async () => {
     server.close();
     await pool.end();
+    await disconnectRedis();
     process.exit(0);
   };
 

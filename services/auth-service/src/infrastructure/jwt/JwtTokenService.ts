@@ -25,9 +25,9 @@ export class JwtTokenService implements ITokenService {
           resolve(null);
           return;
         }
-        const d = decoded as { userId?: string; email?: string };
+        const d = decoded as { userId?: string; email?: string; planTier?: string };
         if (d?.userId && d?.email) {
-          resolve({ userId: d.userId, email: d.email });
+          resolve({ userId: d.userId, email: d.email, planTier: d.planTier ?? "free" });
         } else {
           resolve(null);
         }

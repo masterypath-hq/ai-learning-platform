@@ -1,7 +1,7 @@
 import { User } from "../../domain/models/User.js";
 import type { IUserRepository } from "../interfaces/IUserRepository.js";
 import type { IPasswordHasher } from "../interfaces/IPasswordHasher.js";
-import type { ITokenService } from "../interfaces/ITokenService.js";
+import type { ISessionTokensIssuer } from "../interfaces/ISessionTokensIssuer.js";
 import type { IWelcomeEmailSender } from "../interfaces/IWelcomeEmailSender.js";
 import type { IEventPublisher } from "../interfaces/IEventPublisher.js";
 import { AUTH_EVENTS } from "@ai-learning-platform/shared";
@@ -9,14 +9,12 @@ import type { SignUpResponse } from "@ai-learning-platform/shared";
 import type { ISignUpAction } from "../interfaces/ISignUpAction.js";
 import { v4 as uuidv4 } from "uuid";
 
-const ACCESS_TOKEN_EXPIRES_SECONDS = 900;
-
 /** Single responsibility: execute sign-up. (SOLID: S, O, I — depends only on IWelcomeEmailSender.) */
 export class SignUpAction implements ISignUpAction {
   constructor(
     private readonly userRepo: IUserRepository,
     private readonly passwordHasher: IPasswordHasher,
-    private readonly tokenService: ITokenService,
+    private readonly sessionTokensIssuer: ISessionTokensIssuer,
     private readonly welcomeEmailSender: IWelcomeEmailSender,
     private readonly eventPublisher: IEventPublisher
   ) {}
@@ -32,6 +30,7 @@ export class SignUpAction implements ISignUpAction {
       email: email.toLowerCase().trim(),
       passwordHash,
       name: name?.trim() ?? null,
+      planTier: "free",
       createdAt: now,
       emailVerifiedAt: null,
       authProvider: "local",
@@ -40,10 +39,7 @@ export class SignUpAction implements ISignUpAction {
 
     await this.userRepo.save(user);
 
-    const accessToken = await this.tokenService.signAccessToken(
-      { userId: user.id, email: user.email },
-      ACCESS_TOKEN_EXPIRES_SECONDS
-    );
+    const session = await this.sessionTokensIssuer.issueForUser(user);
 
     await this.welcomeEmailSender.sendWelcome({ to: user.email, name: user.name ?? undefined });
     await this.eventPublisher.publish({
@@ -60,7 +56,12 @@ export class SignUpAction implements ISignUpAction {
     return {
       userId: user.id,
       email: user.email,
-      tokens: { accessToken, expiresInSeconds: ACCESS_TOKEN_EXPIRES_SECONDS },
+      tokens: {
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        expiresInSeconds: session.expiresInSeconds,
+        refreshExpiresInSeconds: session.refreshExpiresInSeconds,
+      },
     };
   }
 }

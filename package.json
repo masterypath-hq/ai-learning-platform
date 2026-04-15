@@ -8,7 +8,9 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "dev:auth": "npm run dev -w @ai-learning-platform/auth-service"
+    "dev:auth": "npm run dev -w @ai-learning-platform/auth-service",
+    "dev:gateway": "npm run dev -w @ai-learning-platform/gateway",
+    "migrate:auth": "npm run migrate:up -w @ai-learning-platform/auth-service"
   },
   "engines": {
     "node": ">=20"

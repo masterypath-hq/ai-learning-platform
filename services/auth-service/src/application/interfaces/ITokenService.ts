@@ -1,6 +1,7 @@
 export interface TokenPayload {
   userId: string;
   email: string;
+  planTier: string;
 }
 
 export interface ITokenService {

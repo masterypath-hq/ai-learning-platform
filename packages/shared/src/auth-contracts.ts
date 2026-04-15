@@ -25,12 +25,18 @@ export interface ResetPasswordRequest {
   newPassword: string;
 }
 
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
 // ----- Response DTOs -----
 
 export interface AuthTokens {
   accessToken: string;
-  refreshToken?: string;
+  refreshToken: string;
   expiresInSeconds: number;
+  /** Seconds until refresh token expires (opaque token stored server-side). */
+  refreshExpiresInSeconds: number;
 }
 
 export interface SignUpResponse {
@@ -58,6 +64,21 @@ export interface ForgotPasswordResponse {
 
 export interface ResetPasswordResponse {
   message: string;
+}
+
+// GET /me — cached profile (Redis in auth service, 15 min TTL)
+export interface UserProfileResponse {
+  userId: string;
+  email: string;
+  name?: string | null;
+  planTier: string;
+  authProvider: string;
+}
+
+export interface RefreshTokensResponse {
+  userId: string;
+  email: string;
+  tokens: AuthTokens;
 }
 
 // ----- Domain events (for choreography) -----

@@ -5,6 +5,8 @@ import { SignInRequest } from "../request/SignInRequest.js";
 import { ForgotPasswordRequest } from "../request/ForgotPasswordRequest.js";
 import { ResetPasswordRequest } from "../request/ResetPasswordRequest.js";
 import { GoogleCallbackRequest } from "../request/GoogleCallbackRequest.js";
+import { parseRefreshTokenBody } from "../request/RefreshTokenBody.js";
+import type { AuthedRequest } from "../middleware/bearerAuth.js";
 
 const HTTP = {
   OK: 200,
@@ -91,6 +93,7 @@ export class AuthController {
       const result = await this.authService.googleSignIn(parsed.request.code);
       const params = new URLSearchParams({
         token: result.tokens.accessToken,
+        refreshToken: result.tokens.refreshToken,
         userId: result.userId,
         isNewUser: String(result.isNewUser),
       });
@@ -138,6 +141,38 @@ export class AuthController {
       }
       if (e instanceof Error && e.message === "USER_NOT_FOUND") {
         res.status(HTTP.UNPROCESSABLE).json({ error: "User not found." });
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async getMe(req: Request, res: Response): Promise<void> {
+    const userId = (req as AuthedRequest).auth.userId;
+    try {
+      const profile = await this.authService.getMe(userId);
+      res.status(HTTP.OK).json(profile);
+    } catch (e) {
+      if (e instanceof Error && e.message === "USER_NOT_FOUND") {
+        res.status(HTTP.UNAUTHORIZED).json({ error: "User not found." });
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async refreshTokens(req: Request, res: Response): Promise<void> {
+    const parsed = parseRefreshTokenBody(req.body);
+    if (!parsed.ok) {
+      res.status(HTTP.BAD_REQUEST).json({ error: parsed.error });
+      return;
+    }
+    try {
+      const result = await this.authService.refreshTokens(parsed.request.refreshToken);
+      res.status(HTTP.OK).json(result);
+    } catch (e) {
+      if (e instanceof Error && e.message === "INVALID_REFRESH_TOKEN") {
+        res.status(HTTP.UNAUTHORIZED).json({ error: "Invalid or expired refresh token." });
         return;
       }
       throw e;

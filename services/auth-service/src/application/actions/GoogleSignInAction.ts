@@ -1,6 +1,6 @@
 import { User } from "../../domain/models/User.js";
 import type { IUserRepository } from "../interfaces/IUserRepository.js";
-import type { ITokenService } from "../interfaces/ITokenService.js";
+import type { ISessionTokensIssuer } from "../interfaces/ISessionTokensIssuer.js";
 import type { IGoogleAuthProvider } from "../interfaces/IGoogleAuthProvider.js";
 import type { IWelcomeEmailSender } from "../interfaces/IWelcomeEmailSender.js";
 import type { IEventPublisher } from "../interfaces/IEventPublisher.js";
@@ -9,13 +9,11 @@ import type { GoogleSignInResponse } from "@ai-learning-platform/shared";
 import type { IGoogleSignInAction } from "../interfaces/IGoogleSignInAction.js";
 import { v4 as uuidv4 } from "uuid";
 
-const ACCESS_TOKEN_EXPIRES_SECONDS = 900;
-
 /** Single responsibility: execute Google OAuth sign-in. (ISP: depends on IWelcomeEmailSender only.) */
 export class GoogleSignInAction implements IGoogleSignInAction {
   constructor(
     private readonly userRepo: IUserRepository,
-    private readonly tokenService: ITokenService,
+    private readonly sessionTokensIssuer: ISessionTokensIssuer,
     private readonly googleAuthProvider: IGoogleAuthProvider,
     private readonly welcomeEmailSender: IWelcomeEmailSender,
     private readonly eventPublisher: IEventPublisher
@@ -35,7 +33,7 @@ export class GoogleSignInAction implements IGoogleSignInAction {
         const linked = User.create({
           ...user.toJSON(),
           googleId: googleUser.googleId,
-          authProvider: "google",
+          authProvider: "google" as const,
         });
         await this.userRepo.save(linked);
         user = linked;
@@ -47,6 +45,7 @@ export class GoogleSignInAction implements IGoogleSignInAction {
           email: googleUser.email.toLowerCase().trim(),
           passwordHash: null,
           name: googleUser.name,
+          planTier: "free",
           createdAt: now,
           emailVerifiedAt: googleUser.emailVerified ? now : null,
           authProvider: "google",
@@ -62,10 +61,7 @@ export class GoogleSignInAction implements IGoogleSignInAction {
       }
     }
 
-    const accessToken = await this.tokenService.signAccessToken(
-      { userId: user.id, email: user.email },
-      ACCESS_TOKEN_EXPIRES_SECONDS
-    );
+    const session = await this.sessionTokensIssuer.issueForUser(user);
 
     await this.eventPublisher.publish({
       type: AUTH_EVENTS.USER_SIGNED_IN_GOOGLE,
@@ -82,7 +78,12 @@ export class GoogleSignInAction implements IGoogleSignInAction {
     return {
       userId: user.id,
       email: user.email,
-      tokens: { accessToken, expiresInSeconds: ACCESS_TOKEN_EXPIRES_SECONDS },
+      tokens: {
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        expiresInSeconds: session.expiresInSeconds,
+        refreshExpiresInSeconds: session.refreshExpiresInSeconds,
+      },
       isNewUser,
     };
   }

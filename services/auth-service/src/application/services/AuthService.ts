@@ -10,8 +10,12 @@ import type {
   GoogleSignInResponse,
   ForgotPasswordResponse,
   ResetPasswordResponse,
+  UserProfileResponse,
+  RefreshTokensResponse,
 } from "@ai-learning-platform/shared";
 import type { IAuthService } from "../interfaces/IAuthService.js";
+import type { IGetMeAction } from "../interfaces/IGetMeAction.js";
+import type { IRefreshTokensAction } from "../interfaces/IRefreshTokensAction.js";
 import crypto from "node:crypto";
 
 /**
@@ -25,6 +29,8 @@ export class AuthService implements IAuthService {
     private readonly googleSignInAction: IGoogleSignInAction,
     private readonly forgotPasswordAction: IForgotPasswordAction,
     private readonly resetPasswordAction: IResetPasswordAction,
+    private readonly getMeAction: IGetMeAction,
+    private readonly refreshTokensAction: IRefreshTokensAction,
     private readonly googleAuthProvider: IGoogleAuthProvider
   ) {}
 
@@ -51,5 +57,13 @@ export class AuthService implements IAuthService {
 
   async resetPassword(token: string, newPassword: string): Promise<ResetPasswordResponse> {
     return this.resetPasswordAction.execute(token, newPassword);
+  }
+
+  async getMe(userId: string): Promise<UserProfileResponse> {
+    return this.getMeAction.execute(userId);
+  }
+
+  async refreshTokens(refreshToken: string): Promise<RefreshTokensResponse> {
+    return this.refreshTokensAction.execute(refreshToken);
   }
 }
