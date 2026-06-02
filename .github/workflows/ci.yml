@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      services: ${{ steps.filter.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            services:
+              - 'services/**'
+              - 'packages/**'
+
+  frontend-lint:
+    name: Frontend lint
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run lint -w @ai-learning-platform/frontend
+
+  frontend-typecheck:
+    name: Frontend typecheck
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run typecheck -w @ai-learning-platform/frontend
+
+  services-lint:
+    name: Services lint
+    needs: changes
+    if: needs.changes.outputs.services == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run lint:services
+
+  services-test:
+    name: Services test
+    needs: changes
+    if: needs.changes.outputs.services == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build -w @ai-learning-platform/shared
+      - run: npm run test:services
+
+  ci-gate:
+    name: ci-gate
+    needs:
+      - changes
+      - frontend-lint
+      - frontend-typecheck
+      - services-lint
+      - services-test
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required checks passed
+        env:
+          FRONTEND_NEEDED: ${{ needs.changes.outputs.frontend }}
+          SERVICES_NEEDED: ${{ needs.changes.outputs.services }}
+          FRONTEND_LINT: ${{ needs.frontend-lint.result }}
+          FRONTEND_TYPECHECK: ${{ needs.frontend-typecheck.result }}
+          SERVICES_LINT: ${{ needs.services-lint.result }}
+          SERVICES_TEST: ${{ needs.services-test.result }}
+        run: |
+          set -euo pipefail
+
+          check() {
+            local needed="$1"
+            local result="$2"
+            local name="$3"
+            if [ "$needed" != "true" ]; then
+              echo "$name: skipped (no matching path changes)"
+              return 0
+            fi
+            if [ "$result" != "success" ]; then
+              echo "::error::$name is required but finished with: $result"
+              exit 1
+            fi
+            echo "$name: success"
+          }
+
+          check "$FRONTEND_NEEDED" "$FRONTEND_LINT" "frontend-lint"
+          check "$FRONTEND_NEEDED" "$FRONTEND_TYPECHECK" "frontend-typecheck"
+          check "$SERVICES_NEEDED" "$SERVICES_LINT" "services-lint"
+          check "$SERVICES_NEEDED" "$SERVICES_TEST" "services-test"
+
+          echo "All required checks passed."

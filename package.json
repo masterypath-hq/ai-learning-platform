@@ -10,9 +10,22 @@
     "build": "npm run build --workspaces --if-present",
     "dev:auth": "npm run dev -w @ai-learning-platform/auth-service",
     "dev:gateway": "npm run dev -w @ai-learning-platform/gateway",
-    "migrate:auth": "npm run migrate:up -w @ai-learning-platform/auth-service"
+    "dev:course": "npm run dev -w @ai-learning-platform/course-service",
+    "migrate:auth": "npm run migrate:up -w @ai-learning-platform/auth-service",
+    "lint:services": "eslint \"services/**/*.ts\" \"packages/**/*.ts\"",
+    "typecheck:services": "npm run build -w @ai-learning-platform/shared && npm run build -w @ai-learning-platform/auth-service && npm run build -w @ai-learning-platform/gateway && npm run build -w @ai-learning-platform/course-service",
+    "test:services": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --passWithNoTests"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.27.0",
+    "@types/jest": "^29.5.14",
+    "eslint": "^9.27.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.32.1"
   }
 }

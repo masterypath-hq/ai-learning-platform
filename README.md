@@ -13,6 +13,20 @@ Monorepo for the AI-powered learning platform. See [PRD](docs/PRD.md) for produc
 | Service | Description |
 |--------|-------------|
 | auth  | User authentication: sign up, sign in, forgot password, welcome email |
+| gateway | API gateway (routing, auth proxy) |
+| course | Course and lesson APIs |
+
+## Development
+
+```bash
+# Install dependencies (from repo root)
+npm install
+
+# Run services locally
+npm run dev:auth
+npm run dev:gateway
+npm run dev:course
+```
 
 ## Running with Docker
 
@@ -26,19 +40,62 @@ If you use the direct URI (`db....supabase.co`) or the wrong region, you may see
 
 ```bash
 cp .env.example .env
-# Edit .env and set DATABASE_URL to the Session pooler URI from the dashboard
 docker compose up -d
 ```
 
-## Development
+## CI/CD (GitHub Actions)
+
+### Workflow
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | PR → `dev` or `main` | Lint, typecheck, tests (path-filtered) |
+| [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) | Push → `main` | Deploy to Railway / Vercel |
+
+**Branch flow:** Open PRs into `dev` → merge when `ci-gate` passes → merge `dev` into `main` yourself → push to `main` deploys.
+
+### Local CI commands
 
 ```bash
-# Install dependencies (from repo root)
-npm install
-
-# Run auth service locally
-npm run dev:auth
+npm run lint:services
+npm run test:services
+npm run lint -w @ai-learning-platform/frontend
+npm run typecheck -w @ai-learning-platform/frontend
 ```
+
+After changing dependencies, run `npm install` at the repo root and commit `package-lock.json`.
+
+### Branch protection
+
+**Settings → Branches → Add rule**
+
+**`dev` and `main`:**
+
+- Require a pull request before merging
+- Require status checks to pass → select **`ci-gate`** (appears after the first PR workflow run)
+- Require branches to be up to date before merging (recommended)
+- Do not allow bypassing the above settings
+
+Only **`ci-gate`** is required (not the individual lint/test jobs), so path-filtered skips do not block merges.
+
+### GitHub Actions secrets
+
+| Secret | Required for | Where to get it |
+|--------|----------------|-----------------|
+| `RAILWAY_TOKEN` | Backend (+ optional frontend) deploy | Railway → Account Settings → Tokens |
+| `RAILWAY_SERVICE_ID_AUTH` | auth-service deploy | Railway service → Settings → Service ID |
+| `RAILWAY_SERVICE_ID_GATEWAY` | gateway deploy | Same |
+| `RAILWAY_SERVICE_ID_COURSE` | course-service deploy | Same |
+| `RAILWAY_FRONTEND_SERVICE_ID` | Frontend on Railway (if not using Vercel) | Same |
+| `VERCEL_TOKEN` | Frontend on Vercel (preferred when set) | Vercel → Settings → Tokens |
+| `VERCEL_ORG_ID` | Vercel deploy | Project settings or `.vercel/project.json` |
+| `VERCEL_PROJECT_ID` | Vercel deploy | Same |
+
+**CI needs no secrets.**
+
+Frontend deploy: if `VERCEL_TOKEN` is set, Vercel is used; otherwise Railway when `RAILWAY_FRONTEND_SERVICE_ID` is set.
+
+Configure each Railway service with Dockerfile `services/<name>/Dockerfile` and build context = repo root.
 
 ## Architecture
 

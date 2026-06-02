@@ -1,5 +1,5 @@
 # Build from repo root: docker build -f services/gateway/Dockerfile .
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ COPY services/gateway ./services/gateway
 RUN npm ci --workspace=@ai-learning-platform/gateway
 RUN npm run build --workspace=@ai-learning-platform/gateway
 
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 
