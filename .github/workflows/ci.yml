@@ -6,6 +6,11 @@ on:
       - dev
       - main
 
+# paths-filter uses the PR files API on pull_request events
+permissions:
+  contents: read
+  pull-requests: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -19,9 +24,12 @@ jobs:
       services: ${{ steps.filter.outputs.services }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          list-files: git
           filters: |
             frontend:
               - 'frontend/**'
@@ -111,6 +119,11 @@ jobs:
           SERVICES_TEST: ${{ needs.services-test.result }}
         run: |
           set -euo pipefail
+
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "::error::Detect changes job failed — cannot evaluate CI gate"
+            exit 1
+          fi
 
           check() {
             local needed="$1"
