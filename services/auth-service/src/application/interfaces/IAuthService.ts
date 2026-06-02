@@ -12,8 +12,10 @@ import type {
 export interface IAuthService {
   signUp(email: string, password: string, name?: string): Promise<SignUpResponse>;
   signIn(email: string, password: string): Promise<SignInResponse>;
-  googleSignIn(code: string): Promise<GoogleSignInResponse>;
-  getGoogleAuthUrl(): string;
+  googleSignIn(code: string, state: string): Promise<GoogleSignInResponse>;
+  getGoogleAuthUrl(): Promise<string>;
+  createGoogleCallbackSession(result: GoogleSignInResponse): Promise<string>;
+  exchangeGoogleCallbackCode(code: string): Promise<GoogleSignInResponse>;
   forgotPassword(email: string, resetLinkBaseUrl: string): Promise<ForgotPasswordResponse>;
   resetPassword(token: string, newPassword: string): Promise<ResetPasswordResponse>;
   getMe(userId: string): Promise<UserProfileResponse>;

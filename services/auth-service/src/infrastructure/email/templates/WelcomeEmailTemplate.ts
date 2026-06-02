@@ -9,7 +9,7 @@ export class WelcomeEmailTemplate implements IEmailTemplate<WelcomeEmailParams> 
     const header = BaseEmailLayout.headerGradient(
       "linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#a855f7 100%)",
       "&#129302;",
-      "Welcome to AI Learning Platform",
+      "Welcome to Mastery Path",
       "Your journey into AI starts now"
     );
 
@@ -40,7 +40,7 @@ export class WelcomeEmailTemplate implements IEmailTemplate<WelcomeEmailParams> 
 </td></tr>`;
 
     return {
-      subject: "Welcome to AI Learning Platform",
+      subject: "Welcome to Mastery Path",
       html: BaseEmailLayout.wrap(header, body),
     };
   }

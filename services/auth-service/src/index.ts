@@ -5,7 +5,7 @@ import { disconnectRedis } from "./lib/redis.js";
 const PORT = Number(process.env.PORT) || 3001;
 
 async function main() {
-  const { app, pool } = await createCompositionRoot();
+  const { app, pool, emailWorker, emailQueue } = await createCompositionRoot();
 
   const server = app.getInstance().listen(PORT, () => {
     console.log(`Auth service listening on port ${PORT}`);
@@ -13,6 +13,8 @@ async function main() {
 
   const shutdown = async () => {
     server.close();
+    await emailWorker.close();
+    await emailQueue.close();
     await pool.end();
     await disconnectRedis();
     process.exit(0);

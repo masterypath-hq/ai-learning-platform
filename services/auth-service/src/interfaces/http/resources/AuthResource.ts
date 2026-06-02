@@ -16,6 +16,7 @@ export class AuthResource {
     this.app.post("/api/v1/auth/refresh", this.wrapAsync((req, res) => this.controller.refreshTokens(req, res)));
     this.app.get("/api/v1/auth/google", this.wrapAsync((req, res) => this.controller.googleRedirect(req, res)));
     this.app.get("/api/v1/auth/google/callback", this.wrapAsync((req, res) => this.controller.googleCallback(req, res)));
+    this.app.post("/api/v1/auth/google/exchange", this.wrapAsync((req, res) => this.controller.exchangeGoogleCallback(req, res)));
     this.app.post("/api/v1/auth/forgot-password", this.wrapAsync((req, res) => this.controller.forgotPassword(req, res)));
     this.app.post("/api/v1/auth/reset-password", this.wrapAsync((req, res) => this.controller.resetPassword(req, res)));
     this.app.get("/api/v1/auth/me", this.bearerAuth, this.wrapAsync((req, res) => this.controller.getMe(req, res)));
