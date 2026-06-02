@@ -103,11 +103,15 @@ export async function createCompositionRoot() {
   let pool: pg.Pool;
 
   if (isPooler) {
-    const cleanConnStr = connectionString.replace(/\?.*$/, "");
-    console.log(`[auth-service] Using Supabase pooler (connection string passed directly to pg)`);
+    const poolConfig = parseConnectionString(connectionString.replace(/\?.*$/, ""));
+    console.log(`[auth-service] Using Supabase pooler (parsed connection; supports @ in password)`);
     pool = new pg.Pool({
-      connectionString: cleanConnStr,
-      ssl: { rejectUnauthorized: false },
+      user: poolConfig.user,
+      password: poolConfig.password,
+      host: poolConfig.host,
+      port: poolConfig.port,
+      database: poolConfig.database,
+      ssl: { rejectUnauthorized: false, servername: poolConfig.host as string },
     });
   } else {
     const poolConfig = parseConnectionString(connectionString);

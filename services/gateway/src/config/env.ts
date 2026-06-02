@@ -53,8 +53,8 @@ export function loadConfig(): GatewayConfig {
         pathRewrite: { "^/api/ai": "" },
       },
       course: {
-        url: process.env.COURSE_SERVICE_URL ?? "http://course-service:5003",
-        pathRewrite: { "^/api/courses": "" },
+        url: process.env.COURSE_SERVICE_URL ?? "http://course-service:3003",
+        pathRewrite: { "^/api/courses": "/api/v1/courses" },
       },
       progress: {
         url: process.env.PROGRESS_SERVICE_URL ?? "http://progress-service:5004",
