@@ -1,0 +1,511 @@
+{
+  "info": {
+    "name": "AI Learning Platform — Course API",
+    "description": "All requests go through the **API gateway** (default `http://localhost:4000`). Paths use `/api/courses/...`; the gateway rewrites to `/api/v1/courses/...` on the course service.\n\n---\n\n## Collection variables\n| Variable | Default | Description |\n|---|---|---|\n| `baseUrl` | `http://localhost:4000` | Gateway URL — use this for all requests |\n| `courseServiceUrl` | `http://localhost:3003` | Direct course-service URL — bypass gateway (debug only) |\n| `accessToken` | _(empty)_ | Paste your JWT here after sign-in via the Auth collection |\n| `courseId` | _(empty)_ | Auto-set by test scripts on any Generate Course call |\n\n---\n\n## Quick reference — valid enum values\n\n### subject\n| Value | Description |\n|---|---|\n| `FINANCE` | Finance & trading tracks |\n| `PROGRAMMING` | Software & tech tracks |\n\n### track — FINANCE subject\n| Value | Description |\n|---|---|\n| `FOREX_TRADING` | Foreign exchange markets, currency pairs, technical & fundamental analysis |\n| `STOCK_MARKET` | Equities, fundamental analysis, valuation, portfolio management |\n| `CRYPTO_BLOCKCHAIN` | Cryptocurrency, blockchain technology, DeFi, tokenomics |\n| `PERSONAL_FINANCE` | Budgeting, savings, debt management, investing basics |\n| `OPTIONS_DERIVATIVES` | Options, futures, swaps, derivatives pricing & strategies |\n\n### track — PROGRAMMING subject\n| Value | Description |\n|---|---|\n| `PYTHON` | Python programming from syntax to advanced patterns |\n| `WEB_DEVELOPMENT` | HTML/CSS/JS, frontend frameworks, backend APIs, full-stack |\n| `AI_MACHINE_LEARNING` | ML fundamentals, supervised/unsupervised learning, model training |\n| `AI_ENGINEERING` | LLMs, prompt engineering, RAG, agents, production AI systems |\n| `CYBERSECURITY` | Ethical hacking, penetration testing, offensive & defensive security |\n| `DATA_STRUCTURES_ALGORITHMS` | DSA, complexity analysis, problem-solving patterns, interview prep |\n\n### level\n| Value | Description |\n|---|---|\n| `BEGINNER` | First principles — zero prior knowledge assumed |\n| `INTERMEDIATE` | Builds on fundamentals — some experience expected |\n| `ADVANCED` | Deep dives — practitioner-level detail |\n| `MASTERY` | Institutional/professional depth — the real thing, not a summary |\n\n---\n\n## Async generation flow\n1. `POST /api/courses/generate` → returns `202` immediately with `{ courseId, status: \"GENERATING\" }`\n2. Poll `GET /api/courses/:id/status` until status is `READY` or `FAILED`\n3. Once `READY`, call `GET /api/courses/:id` for the full nested course\n\n---\n\n## Auth\nEvery course endpoint requires `Authorization: Bearer {{accessToken}}`. The gateway validates the JWT before forwarding the request. Get a token from the Auth API collection (Sign in or Sign up).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "courseServiceUrl", "value": "http://localhost:3003" },
+    { "key": "accessToken", "value": "" },
+    { "key": "courseId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Gateway health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health",
+            "description": "Returns `{ \"status\": \"ok\", \"service\": \"gateway\" }`.\nNo auth required."
+          }
+        },
+        {
+          "name": "Course service health (direct — debug only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{courseServiceUrl}}/health",
+            "description": "Bypasses the gateway. Use only for local debugging.\nProduction clients must always go through the gateway."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Generate Course",
+      "item": [
+        {
+          "name": "FINANCE — FOREX_TRADING — BEGINNER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.courseId) pm.collectionVariables.set('courseId', j.courseId);",
+                  "  console.log('courseId:', j.courseId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"FINANCE\",\n  \"track\": \"FOREX_TRADING\",\n  \"level\": \"BEGINNER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "**subject**: `FINANCE` | `PROGRAMMING`\n\n---\n\n**Finance tracks** (use when subject = FINANCE):\n| track value | What it covers |\n|---|---|\n| `FOREX_TRADING` | Currency pairs, pip/lot sizing, technical & fundamental analysis, risk management |\n| `STOCK_MARKET` | Equities, DCF valuation, financial statements, portfolio theory |\n| `CRYPTO_BLOCKCHAIN` | Crypto markets, blockchain tech, DeFi, on-chain analysis |\n| `PERSONAL_FINANCE` | Budgeting, emergency funds, debt payoff, investing basics |\n| `OPTIONS_DERIVATIVES` | Calls/puts, Greeks, spreads, futures, swaps, pricing models |\n\n---\n\n**Programming tracks** (use when subject = PROGRAMMING):\n| track value | What it covers |\n|---|---|\n| `PYTHON` | Syntax → OOP → advanced patterns → libraries |\n| `WEB_DEVELOPMENT` | HTML/CSS/JS → React → Node.js → full-stack deployment |\n| `AI_MACHINE_LEARNING` | ML theory → supervised/unsupervised → model eval → deployment |\n| `AI_ENGINEERING` | LLMs → prompt engineering → RAG → agents → prod AI systems |\n| `CYBERSECURITY` | Ethical hacking, recon, exploitation, web app security, network security, CTF skills |\n| `DATA_STRUCTURES_ALGORITHMS` | Arrays → trees → graphs → DP → complexity → interview patterns |\n\n---\n\n**Levels**:\n| level | Depth |\n|---|---|\n| `BEGINNER` | Zero prior knowledge assumed — first principles |\n| `INTERMEDIATE` | Builds on fundamentals |\n| `ADVANCED` | Practitioner depth |\n| `MASTERY` | Professional/institutional grade — the real thing |\n\n---\n\n**Optional field:**\n```json\n\"userBackground\": \"I know basic maths but have never traded before\"\n```\nFree text you can add to personalise the content to your current knowledge."
+          }
+        },
+        {
+          "name": "FINANCE — STOCK_MARKET — INTERMEDIATE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.courseId) pm.collectionVariables.set('courseId', j.courseId);",
+                  "  console.log('courseId:', j.courseId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"FINANCE\",\n  \"track\": \"STOCK_MARKET\",\n  \"level\": \"INTERMEDIATE\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "Equities at intermediate level — financial statement analysis, valuation models (DCF, P/E, EV/EBITDA), sector analysis."
+          }
+        },
+        {
+          "name": "FINANCE — OPTIONS_DERIVATIVES — ADVANCED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.courseId) pm.collectionVariables.set('courseId', j.courseId);",
+                  "  console.log('courseId:', j.courseId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"FINANCE\",\n  \"track\": \"OPTIONS_DERIVATIVES\",\n  \"level\": \"ADVANCED\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "Options & derivatives at advanced level — Black-Scholes model, Greeks (delta/gamma/theta/vega/rho), volatility surfaces, multi-leg strategies, risk management."
+          }
+        },
+        {
+          "name": "FINANCE — CRYPTO_BLOCKCHAIN — BEGINNER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.courseId) pm.collectionVariables.set('courseId', j.courseId);",
+                  "  console.log('courseId:', j.courseId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"FINANCE\",\n  \"track\": \"CRYPTO_BLOCKCHAIN\",\n  \"level\": \"BEGINNER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "Crypto & blockchain from scratch — what blockchain is, how Bitcoin/Ethereum work, wallets, exchanges, DeFi basics."
+          }
+        },
+        {
+          "name": "PROGRAMMING — CYBERSECURITY — BEGINNER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.courseId) pm.collectionVariables.set('courseId', j.courseId);",
+                  "  console.log('courseId:', j.courseId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"PROGRAMMING\",\n  \"track\": \"CYBERSECURITY\",\n  \"level\": \"BEGINNER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "Ethical hacking from zero — networking fundamentals (TCP/IP, DNS, HTTP), Linux basics, how attackers think, recon, basic tools (Nmap, Wireshark), introduction to CTF challenges."
+          }
+        },
+        {
+          "name": "PROGRAMMING — CYBERSECURITY — ADVANCED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.courseId) pm.collectionVariables.set('courseId', j.courseId);",
+                  "  console.log('courseId:', j.courseId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"PROGRAMMING\",\n  \"track\": \"CYBERSECURITY\",\n  \"level\": \"ADVANCED\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "Advanced penetration testing — web app exploitation (SQLi, XSS, SSRF, XXE, IDOR, CSRF), buffer overflows, privilege escalation, post-exploitation, Active Directory attacks, Burp Suite, Metasploit."
+          }
+        },
+        {
+          "name": "PROGRAMMING — CYBERSECURITY — MASTERY",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.courseId) pm.collectionVariables.set('courseId', j.courseId);",
+                  "  console.log('courseId:', j.courseId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"PROGRAMMING\",\n  \"track\": \"CYBERSECURITY\",\n  \"level\": \"MASTERY\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "Professional-grade offensive security — zero-day research, custom exploit development, kernel exploitation, binary reverse engineering, malware analysis, red team operations, OSCP/OSEP-level techniques."
+          }
+        },
+        {
+          "name": "PROGRAMMING — PYTHON — BEGINNER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.courseId) pm.collectionVariables.set('courseId', j.courseId);",
+                  "  console.log('courseId:', j.courseId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"PROGRAMMING\",\n  \"track\": \"PYTHON\",\n  \"level\": \"BEGINNER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "Python from absolute zero — variables, data types, loops, functions, OOP, file I/O. All examples are runnable with inline comments."
+          }
+        },
+        {
+          "name": "PROGRAMMING — AI_ENGINEERING — INTERMEDIATE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.courseId) pm.collectionVariables.set('courseId', j.courseId);",
+                  "  console.log('courseId:', j.courseId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"PROGRAMMING\",\n  \"track\": \"AI_ENGINEERING\",\n  \"level\": \"INTERMEDIATE\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "LLM integration, prompt engineering, building RAG systems, chaining tools, production AI application patterns."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Course Status & Retrieval",
+      "item": [
+        {
+          "name": "Get Course Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/courses/{{courseId}}/status",
+            "description": "Poll after `generate`. Returns:\n```json\n{ \"courseId\": \"...\", \"status\": \"GENERATING\" }\n```\n\n**status values:**\n| Value | Meaning |\n|---|---|\n| `GENERATING` | Background generation still running — keep polling |\n| `READY` | All modules and lessons are saved — call `GET /api/courses/:id` |\n| `FAILED` | Generation failed — response includes `errorMessage` with the reason |"
+          }
+        },
+        {
+          "name": "Get Course (full nested)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/courses/{{courseId}}",
+            "description": "Returns the full nested course once status is `READY`.\n\n**Response shape:**\n```json\n{\n  \"id\": \"uuid\",\n  \"userId\": \"uuid\",\n  \"subject\": \"PROGRAMMING\",\n  \"track\": \"CYBERSECURITY\",\n  \"level\": \"BEGINNER\",\n  \"title\": \"Introduction to Ethical Hacking\",\n  \"description\": \"...\",\n  \"learningObjectives\": [\"Understand TCP/IP\", \"...\" ],\n  \"prerequisites\": [\"Basic computer literacy\"],\n  \"estimatedDurationMinutes\": 600,\n  \"status\": \"READY\",\n  \"modules\": [\n    {\n      \"id\": \"uuid\",\n      \"title\": \"Networking Fundamentals\",\n      \"description\": \"...\",\n      \"position\": 1,\n      \"lessons\": [\n        {\n          \"id\": \"uuid\",\n          \"title\": \"How TCP/IP Works\",\n          \"content\": \"...\",\n          \"position\": 1,\n          \"workedExamples\": [\n            { \"id\": \"uuid\", \"title\": \"...\", \"problem\": \"...\", \"solution\": \"...\", \"position\": 1 }\n          ],\n          \"practiceExercises\": [\n            { \"id\": \"uuid\", \"question\": \"...\", \"hint\": \"...\", \"answer\": \"...\", \"difficulty\": \"EASY\" }\n          ]\n        }\n      ]\n    }\n  ],\n  \"createdAt\": \"2026-04-17T10:00:00.000Z\",\n  \"updatedAt\": \"2026-04-17T10:02:30.000Z\"\n}\n```"
+          }
+        },
+        {
+          "name": "List My Courses (all)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "courses"]
+            },
+            "description": "Returns a paginated list of all courses belonging to the authenticated user.\n\n**Optional query parameters:**\n| Param | Values | Example |\n|---|---|---|\n| `subject` | `FINANCE` \\| `PROGRAMMING` | `?subject=PROGRAMMING` |\n| `track` | Any track value (see table below) | `?track=CYBERSECURITY` |\n| `level` | `BEGINNER` \\| `INTERMEDIATE` \\| `ADVANCED` \\| `MASTERY` | `?level=BEGINNER` |\n| `page` | integer ≥ 1 (default `1`) | `?page=2` |\n| `limit` | integer 1–100 (default `20`) | `?limit=5` |\n\n**All track values:**\n```\nFINANCE:     FOREX_TRADING, STOCK_MARKET, CRYPTO_BLOCKCHAIN, PERSONAL_FINANCE, OPTIONS_DERIVATIVES\nPROGRAMMING: PYTHON, WEB_DEVELOPMENT, AI_MACHINE_LEARNING, AI_ENGINEERING, CYBERSECURITY, DATA_STRUCTURES_ALGORITHMS\n```\n\n**Response shape:**\n```json\n{\n  \"courses\": [\n    {\n      \"id\": \"uuid\",\n      \"subject\": \"PROGRAMMING\",\n      \"track\": \"CYBERSECURITY\",\n      \"level\": \"BEGINNER\",\n      \"title\": \"Introduction to Ethical Hacking\",\n      \"status\": \"READY\",\n      \"estimatedDurationMinutes\": 600,\n      \"createdAt\": \"2026-04-17T10:00:00.000Z\"\n    }\n  ],\n  \"pagination\": {\n    \"total\": 5,\n    \"page\": 1,\n    \"limit\": 20,\n    \"totalPages\": 1\n  }\n}\n```"
+          }
+        },
+        {
+          "name": "List My Courses — filter by subject=PROGRAMMING",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses?subject=PROGRAMMING",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "courses"],
+              "query": [
+                { "key": "subject", "value": "PROGRAMMING" }
+              ]
+            },
+            "description": "Returns only PROGRAMMING courses for the authenticated user."
+          }
+        },
+        {
+          "name": "List My Courses — filter by track=CYBERSECURITY",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses?track=CYBERSECURITY",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "courses"],
+              "query": [
+                { "key": "track", "value": "CYBERSECURITY" }
+              ]
+            },
+            "description": "Returns only CYBERSECURITY track courses."
+          }
+        },
+        {
+          "name": "List My Courses — filter by subject + level + pagination",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses?subject=FINANCE&level=BEGINNER&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "courses"],
+              "query": [
+                { "key": "subject", "value": "FINANCE" },
+                { "key": "level", "value": "BEGINNER" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Combined filter — FINANCE courses at BEGINNER level, 10 per page."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Cases",
+      "item": [
+        {
+          "name": "Generate — no token (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"PROGRAMMING\",\n  \"track\": \"CYBERSECURITY\",\n  \"level\": \"BEGINNER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "No Authorization header — gateway returns `401 Unauthorized` before the request even reaches the course-service."
+          }
+        },
+        {
+          "name": "Generate — invalid subject (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"MATHS\",\n  \"track\": \"PYTHON\",\n  \"level\": \"BEGINNER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "Invalid subject `MATHS` — course-service returns `400 Bad Request`.\n\nValid values: `FINANCE` | `PROGRAMMING`"
+          }
+        },
+        {
+          "name": "Generate — invalid track (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"PROGRAMMING\",\n  \"track\": \"HACKING\",\n  \"level\": \"BEGINNER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "Invalid track `HACKING` — course-service returns `400 Bad Request`.\n\nUse `CYBERSECURITY` for ethical hacking content."
+          }
+        },
+        {
+          "name": "Generate — invalid level (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"PROGRAMMING\",\n  \"track\": \"CYBERSECURITY\",\n  \"level\": \"EXPERT\"\n}"
+            },
+            "url": "{{baseUrl}}/api/courses/generate",
+            "description": "Invalid level `EXPERT` — course-service returns `400 Bad Request`.\n\nValid values: `BEGINNER` | `INTERMEDIATE` | `ADVANCED` | `MASTERY`"
+          }
+        },
+        {
+          "name": "Get Course — not found (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/courses/00000000-0000-0000-0000-000000000000",
+            "description": "Non-existent courseId — course-service returns `404 Not Found`."
+          }
+        },
+        {
+          "name": "Get Course — wrong user (403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/courses/{{courseId}}",
+            "description": "To test: sign in as **User A**, generate a course, copy the courseId. Then sign in as **User B**, paste User B's token as `accessToken`, and send this request with User A's courseId.\n\nExpected: `403 Forbidden` — course-service verifies that the requesting userId matches the course owner."
+          }
+        }
+      ]
+    }
+  ]
+}

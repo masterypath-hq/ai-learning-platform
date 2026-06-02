@@ -50,6 +50,41 @@ services:
       redis:
         condition: service_healthy
 
+  course-db:
+    profiles:
+      - local
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: course
+      POSTGRES_PASSWORD: course
+      POSTGRES_DB: course
+    ports:
+      - "5434:5432"
+    volumes:
+      - course-db-data:/var/lib/postgresql/data
+      - ./services/course-service/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U course -d course"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  course-service:
+    build:
+      context: .
+      dockerfile: services/course-service/Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      ENV_FILE_PATH: /app/.env
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - ./.env:/app/.env:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
   gateway:
     build:
       context: .
@@ -63,7 +98,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       AUTH_SERVICE_URL: http://auth-service:3001
       AI_SERVICE_URL: http://ai-service:5002
-      COURSE_SERVICE_URL: http://course-service:5003
+      COURSE_SERVICE_URL: http://course-service:3003
       PROGRESS_SERVICE_URL: http://progress-service:5004
     depends_on:
       redis:
@@ -71,4 +106,5 @@ services:
 
 volumes:
   auth-db-data:
+  course-db-data:
   redis-data:
