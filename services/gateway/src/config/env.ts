@@ -8,6 +8,8 @@ export interface GatewayConfig {
   jwtSecret: string;
   redisUrl: string;
   freeTierDailyLimit: number;
+  signInMaxAttempts: number;
+  signInWindowSeconds: number;
   proxyTimeoutMs: number;
   /** Where to send users after they open the email link (SPA reset-password page). */
   frontendUrl: string;
@@ -35,6 +37,8 @@ export function loadConfig(): GatewayConfig {
     jwtSecret,
     redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
     freeTierDailyLimit: Number(process.env.FREE_TIER_DAILY_LIMIT) || 5,
+    signInMaxAttempts: Number(process.env.SIGN_IN_MAX_ATTEMPTS) || 5,
+    signInWindowSeconds: Number(process.env.SIGN_IN_WINDOW_SECONDS) || 900, // 15 minutes
     proxyTimeoutMs: 30_000,
     frontendUrl: (process.env.FRONTEND_URL ?? "http://localhost:3000").replace(/\/$/, ""),
     frontendResetPasswordPath:
