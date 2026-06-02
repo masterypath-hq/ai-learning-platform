@@ -6,10 +6,8 @@ on:
       - dev
       - main
 
-# paths-filter uses the PR files API on pull_request events
 permissions:
   contents: read
-  pull-requests: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -26,16 +24,27 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: dorny/paths-filter@v3
+      - name: Detect path changes
         id: filter
-        with:
-          list-files: git
-          filters: |
-            frontend:
-              - 'frontend/**'
-            services:
-              - 'services/**'
-              - 'packages/**'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          frontend=false
+          services=false
+          if echo "$CHANGED" | grep -qE '^frontend/'; then
+            frontend=true
+          fi
+          if echo "$CHANGED" | grep -qE '^(services/|packages/)'; then
+            services=true
+          fi
+
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "services=$services" >> "$GITHUB_OUTPUT"
 
   frontend-lint:
     name: Frontend lint
