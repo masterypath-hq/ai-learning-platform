@@ -17,6 +17,9 @@ import { WelcomeEmailTemplate } from "./infrastructure/email/templates/WelcomeEm
 import { PasswordResetEmailTemplate } from "./infrastructure/email/templates/PasswordResetEmailTemplate.js";
 import { PasswordChangedEmailTemplate } from "./infrastructure/email/templates/PasswordChangedEmailTemplate.js";
 import type { IEmailSender } from "./application/interfaces/IEmailSender.js";
+import { createEmailQueue } from "./infrastructure/queue/EmailQueue.js";
+import { createEmailWorker } from "./infrastructure/queue/EmailWorker.js";
+import { QueuedEmailSender } from "./infrastructure/queue/QueuedEmailSender.js";
 import { InMemoryEventPublisher } from "./infrastructure/events/InMemoryEventPublisher.js";
 import { SignUpAction } from "./application/actions/SignUpAction.js";
 import { SignInAction } from "./application/actions/SignInAction.js";
@@ -24,6 +27,8 @@ import { GoogleSignInAction } from "./application/actions/GoogleSignInAction.js"
 import { ForgotPasswordAction } from "./application/actions/ForgotPasswordAction.js";
 import { ResetPasswordAction } from "./application/actions/ResetPasswordAction.js";
 import { GoogleAuthProvider } from "./infrastructure/google/GoogleAuthProvider.js";
+import { RedisGoogleStateStore } from "./infrastructure/google/RedisGoogleStateStore.js";
+import { RedisGoogleCallbackStore } from "./infrastructure/google/RedisGoogleCallbackStore.js";
 import { AuthService } from "./application/services/AuthService.js";
 import { AuthController } from "./interfaces/http/controllers/AuthController.js";
 import { AuthResource } from "./interfaces/http/resources/AuthResource.js";
@@ -121,6 +126,10 @@ export async function createCompositionRoot() {
     pool = new pg.Pool(poolConfig);
   }
 
+  pool.query("SELECT 1").catch((err: Error) =>
+    console.warn("[auth-service] DB warmup query failed:", err.message)
+  );
+
   const userRepo = new PgUserRepository(pool);
   const resetTokenRepo = new PgPasswordResetTokenRepository(pool);
   const refreshTokenRepo = new PgRefreshTokenRepository(pool);
@@ -146,7 +155,7 @@ export async function createCompositionRoot() {
   const passwordHasher = new BcryptPasswordHasher();
   const resendApiKey = process.env.RESEND_API_KEY;
   const resendFrom = process.env.RESEND_FROM_ADDRESS ?? "onboarding@resend.dev";
-  const emailSender: IEmailSender = resendApiKey
+  const directEmailSender: IEmailSender = resendApiKey
     ? new ResendEmailSender(
         resendApiKey,
         resendFrom,
@@ -160,6 +169,12 @@ export async function createCompositionRoot() {
   } else {
     console.log("[auth-service] RESEND_API_KEY not set — emails logged to console");
   }
+
+  const emailQueue = createEmailQueue(redisUrl!);
+  const emailWorker = createEmailWorker(redisUrl!, directEmailSender);
+  const emailSender: IEmailSender = new QueuedEmailSender(emailQueue);
+  console.log("[auth-service] Email queue ready (BullMQ)");
+
   const eventPublisher = new InMemoryEventPublisher();
 
   const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "";
@@ -210,6 +225,9 @@ export async function createCompositionRoot() {
     eventPublisher
   );
 
+  const googleStateStore = new RedisGoogleStateStore(redis!);
+  const googleCallbackStore = new RedisGoogleCallbackStore(redis!);
+
   const authService = new AuthService(
     signUpAction,
     signInAction,
@@ -218,10 +236,12 @@ export async function createCompositionRoot() {
     resetPasswordAction,
     getMeAction,
     refreshTokensAction,
-    googleAuthProvider
+    googleAuthProvider,
+    googleStateStore,
+    googleCallbackStore
   );
   const authController = new AuthController(authService, googleRedirectFrontendUrl);
   const app = new App(authController, bearerAuth);
 
-  return { app, pool };
+  return { app, pool, emailWorker, emailQueue };
 }

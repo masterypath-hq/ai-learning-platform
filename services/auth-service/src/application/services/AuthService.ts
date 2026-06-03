@@ -16,6 +16,8 @@ import type {
 import type { IAuthService } from "../interfaces/IAuthService.js";
 import type { IGetMeAction } from "../interfaces/IGetMeAction.js";
 import type { IRefreshTokensAction } from "../interfaces/IRefreshTokensAction.js";
+import type { IGoogleStateStore } from "../interfaces/IGoogleStateStore.js";
+import type { IGoogleCallbackStore } from "../interfaces/IGoogleCallbackStore.js";
 import crypto from "node:crypto";
 
 /**
@@ -31,7 +33,9 @@ export class AuthService implements IAuthService {
     private readonly resetPasswordAction: IResetPasswordAction,
     private readonly getMeAction: IGetMeAction,
     private readonly refreshTokensAction: IRefreshTokensAction,
-    private readonly googleAuthProvider: IGoogleAuthProvider
+    private readonly googleAuthProvider: IGoogleAuthProvider,
+    private readonly googleStateStore: IGoogleStateStore,
+    private readonly googleCallbackStore: IGoogleCallbackStore
   ) {}
 
   async signUp(email: string, password: string, name?: string): Promise<SignUpResponse> {
@@ -42,13 +46,28 @@ export class AuthService implements IAuthService {
     return this.signInAction.execute(email, password);
   }
 
-  getGoogleAuthUrl(): string {
+  async getGoogleAuthUrl(): Promise<string> {
     const state = crypto.randomBytes(32).toString("hex");
+    await this.googleStateStore.save(state);
     return this.googleAuthProvider.getAuthorizationUrl(state);
   }
 
-  async googleSignIn(code: string): Promise<GoogleSignInResponse> {
+  async googleSignIn(code: string, state: string): Promise<GoogleSignInResponse> {
+    const valid = await this.googleStateStore.consume(state);
+    if (!valid) throw new Error("GOOGLE_INVALID_STATE");
     return this.googleSignInAction.execute(code);
+  }
+
+  async createGoogleCallbackSession(result: GoogleSignInResponse): Promise<string> {
+    const code = crypto.randomBytes(32).toString("hex");
+    await this.googleCallbackStore.save(code, result);
+    return code;
+  }
+
+  async exchangeGoogleCallbackCode(code: string): Promise<GoogleSignInResponse> {
+    const result = await this.googleCallbackStore.consume(code);
+    if (!result) throw new Error("GOOGLE_INVALID_CALLBACK_CODE");
+    return result;
   }
 
   async forgotPassword(email: string, resetLinkBaseUrl: string): Promise<ForgotPasswordResponse> {

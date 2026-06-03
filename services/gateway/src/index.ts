@@ -4,6 +4,7 @@ import { loadConfig } from "./config/env.js";
 import { getRedisClient, disconnectRedis } from "./lib/redis.js";
 import { createVerifyJwt } from "./middleware/verifyJwt.js";
 import { createChatRateLimit } from "./middleware/chatRateLimit.js";
+import { createSignInRateLimit } from "./middleware/signInRateLimit.js";
 import { createServiceProxy } from "./proxy/createServiceProxy.js";
 
 const config = loadConfig();
@@ -13,6 +14,11 @@ const verifyJwt = createVerifyJwt(config.jwtSecret);
 const chatRateLimit = createChatRateLimit({
   redis,
   dailyLimit: config.freeTierDailyLimit,
+});
+const signInRateLimit = createSignInRateLimit({
+  redis,
+  maxAttempts: config.signInMaxAttempts,
+  windowSeconds: config.signInWindowSeconds,
 });
 
 const app = express();
@@ -58,21 +64,23 @@ const protectedAuthProxyV1 = createServiceProxy({
   timeoutMs: config.proxyTimeoutMs,
 });
 
-app.post("/api/auth/sign-in", authProxy);
+app.post("/api/auth/sign-in", signInRateLimit, authProxy);
 app.post("/api/auth/sign-up", authProxy);
 app.post("/api/auth/refresh", authProxy);
 app.post("/api/auth/forgot-password", authProxy);
 app.post("/api/auth/reset-password", authProxy);
 app.get("/api/auth/google", authProxy);
 app.get("/api/auth/google/callback", authProxy);
+app.post("/api/auth/google/exchange", authProxy);
 
-app.post("/api/v1/auth/sign-in", authProxyV1);
+app.post("/api/v1/auth/sign-in", signInRateLimit, authProxyV1);
 app.post("/api/v1/auth/sign-up", authProxyV1);
 app.post("/api/v1/auth/refresh", authProxyV1);
 app.post("/api/v1/auth/forgot-password", authProxyV1);
 app.post("/api/v1/auth/reset-password", authProxyV1);
 app.get("/api/v1/auth/google", authProxyV1);
 app.get("/api/v1/auth/google/callback", authProxyV1);
+app.post("/api/v1/auth/google/exchange", authProxyV1);
 
 // ── Protected auth (JWT) — must come after explicit public routes above ──
 app.use("/api/auth", verifyJwt, protectedAuthProxy);
