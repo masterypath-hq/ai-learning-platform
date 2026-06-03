@@ -1,13 +1,16 @@
 import type { ISignUpAction } from "../interfaces/ISignUpAction.js";
 import type { ISignInAction } from "../interfaces/ISignInAction.js";
 import type { IGoogleSignInAction } from "../interfaces/IGoogleSignInAction.js";
+import type { IGithubSignInAction } from "../interfaces/IGithubSignInAction.js";
 import type { IForgotPasswordAction } from "../interfaces/IForgotPasswordAction.js";
 import type { IResetPasswordAction } from "../interfaces/IResetPasswordAction.js";
 import type { IGoogleAuthProvider } from "../interfaces/IGoogleAuthProvider.js";
+import type { IGithubAuthProvider } from "../interfaces/IGithubAuthProvider.js";
 import type {
   SignUpResponse,
   SignInResponse,
   GoogleSignInResponse,
+  GithubSignInResponse,
   ForgotPasswordResponse,
   ResetPasswordResponse,
   UserProfileResponse,
@@ -18,6 +21,8 @@ import type { IGetMeAction } from "../interfaces/IGetMeAction.js";
 import type { IRefreshTokensAction } from "../interfaces/IRefreshTokensAction.js";
 import type { IGoogleStateStore } from "../interfaces/IGoogleStateStore.js";
 import type { IGoogleCallbackStore } from "../interfaces/IGoogleCallbackStore.js";
+import type { IGithubStateStore } from "../interfaces/IGithubStateStore.js";
+import type { IGithubCallbackStore } from "../interfaces/IGithubCallbackStore.js";
 import crypto from "node:crypto";
 
 /**
@@ -29,13 +34,17 @@ export class AuthService implements IAuthService {
     private readonly signUpAction: ISignUpAction,
     private readonly signInAction: ISignInAction,
     private readonly googleSignInAction: IGoogleSignInAction,
+    private readonly githubSignInAction: IGithubSignInAction,
     private readonly forgotPasswordAction: IForgotPasswordAction,
     private readonly resetPasswordAction: IResetPasswordAction,
     private readonly getMeAction: IGetMeAction,
     private readonly refreshTokensAction: IRefreshTokensAction,
     private readonly googleAuthProvider: IGoogleAuthProvider,
     private readonly googleStateStore: IGoogleStateStore,
-    private readonly googleCallbackStore: IGoogleCallbackStore
+    private readonly googleCallbackStore: IGoogleCallbackStore,
+    private readonly githubAuthProvider: IGithubAuthProvider,
+    private readonly githubStateStore: IGithubStateStore,
+    private readonly githubCallbackStore: IGithubCallbackStore
   ) {}
 
   async signUp(email: string, password: string, name?: string): Promise<SignUpResponse> {
@@ -67,6 +76,30 @@ export class AuthService implements IAuthService {
   async exchangeGoogleCallbackCode(code: string): Promise<GoogleSignInResponse> {
     const result = await this.googleCallbackStore.consume(code);
     if (!result) throw new Error("GOOGLE_INVALID_CALLBACK_CODE");
+    return result;
+  }
+
+  async getGithubAuthUrl(): Promise<string> {
+    const state = crypto.randomBytes(32).toString("hex");
+    await this.githubStateStore.save(state);
+    return this.githubAuthProvider.getAuthorizationUrl(state);
+  }
+
+  async githubSignIn(code: string, state: string): Promise<GithubSignInResponse> {
+    const valid = await this.githubStateStore.consume(state);
+    if (!valid) throw new Error("GITHUB_INVALID_STATE");
+    return this.githubSignInAction.execute(code);
+  }
+
+  async createGithubCallbackSession(result: GithubSignInResponse): Promise<string> {
+    const code = crypto.randomBytes(32).toString("hex");
+    await this.githubCallbackStore.save(code, result);
+    return code;
+  }
+
+  async exchangeGithubCallbackCode(code: string): Promise<GithubSignInResponse> {
+    const result = await this.githubCallbackStore.consume(code);
+    if (!result) throw new Error("GITHUB_INVALID_CALLBACK_CODE");
     return result;
   }
 

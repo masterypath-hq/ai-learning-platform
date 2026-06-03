@@ -5,6 +5,7 @@ import { SignInRequest } from "../request/SignInRequest.js";
 import { ForgotPasswordRequest } from "../request/ForgotPasswordRequest.js";
 import { ResetPasswordRequest } from "../request/ResetPasswordRequest.js";
 import { GoogleCallbackRequest } from "../request/GoogleCallbackRequest.js";
+import { GithubCallbackRequest } from "../request/GithubCallbackRequest.js";
 import { parseRefreshTokenBody } from "../request/RefreshTokenBody.js";
 import type { AuthedRequest } from "../middleware/bearerAuth.js";
 
@@ -117,6 +118,52 @@ export class AuthController {
       res.status(HTTP.OK).json(result);
     } catch (e) {
       if (e instanceof Error && e.message === "GOOGLE_INVALID_CALLBACK_CODE") {
+        res.status(HTTP.BAD_REQUEST).json({ error: "Invalid or expired callback code. Please sign in again." });
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async githubRedirect(_req: Request, res: Response): Promise<void> {
+    const url = await this.authService.getGithubAuthUrl();
+    res.redirect(HTTP.FOUND, url);
+  }
+
+  async githubCallback(req: Request, res: Response): Promise<void> {
+    const parsed = GithubCallbackRequest.fromQuery(req.query);
+    if (!parsed.ok) {
+      res.status(HTTP.BAD_REQUEST).json({ error: parsed.error });
+      return;
+    }
+    try {
+      const result = await this.authService.githubSignIn(parsed.request.code, parsed.request.state);
+      const tempCode = await this.authService.createGithubCallbackSession(result);
+      res.redirect(HTTP.FOUND, `${this.googleRedirectFrontendUrl}?code=${tempCode}`);
+    } catch (e) {
+      if (e instanceof Error && e.message === "GITHUB_INVALID_STATE") {
+        res.status(HTTP.BAD_REQUEST).json({ error: "Invalid or expired OAuth state. Please try again." });
+        return;
+      }
+      if (e instanceof Error && e.message.startsWith("GITHUB_")) {
+        res.status(HTTP.UNPROCESSABLE).json({ error: "GitHub sign-in failed. Please try again." });
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async exchangeGithubCallback(req: Request, res: Response): Promise<void> {
+    const code = typeof req.body?.code === "string" ? req.body.code.trim() : "";
+    if (!code) {
+      res.status(HTTP.BAD_REQUEST).json({ error: "code is required." });
+      return;
+    }
+    try {
+      const result = await this.authService.exchangeGithubCallbackCode(code);
+      res.status(HTTP.OK).json(result);
+    } catch (e) {
+      if (e instanceof Error && e.message === "GITHUB_INVALID_CALLBACK_CODE") {
         res.status(HTTP.BAD_REQUEST).json({ error: "Invalid or expired callback code. Please sign in again." });
         return;
       }
