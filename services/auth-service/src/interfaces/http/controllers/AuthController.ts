@@ -79,7 +79,7 @@ export class AuthController {
   }
 
   async googleRedirect(_req: Request, res: Response): Promise<void> {
-    const url = this.authService.getGoogleAuthUrl();
+    const url = await this.authService.getGoogleAuthUrl();
     res.redirect(HTTP.FOUND, url);
   }
 
@@ -90,17 +90,34 @@ export class AuthController {
       return;
     }
     try {
-      const result = await this.authService.googleSignIn(parsed.request.code);
-      const params = new URLSearchParams({
-        token: result.tokens.accessToken,
-        refreshToken: result.tokens.refreshToken,
-        userId: result.userId,
-        isNewUser: String(result.isNewUser),
-      });
-      res.redirect(HTTP.FOUND, `${this.googleRedirectFrontendUrl}?${params.toString()}`);
+      const result = await this.authService.googleSignIn(parsed.request.code, parsed.request.state);
+      const tempCode = await this.authService.createGoogleCallbackSession(result);
+      res.redirect(HTTP.FOUND, `${this.googleRedirectFrontendUrl}?code=${tempCode}`);
     } catch (e) {
+      if (e instanceof Error && e.message === "GOOGLE_INVALID_STATE") {
+        res.status(HTTP.BAD_REQUEST).json({ error: "Invalid or expired OAuth state. Please try again." });
+        return;
+      }
       if (e instanceof Error && e.message.startsWith("GOOGLE_")) {
         res.status(HTTP.UNPROCESSABLE).json({ error: "Google sign-in failed. Please try again." });
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async exchangeGoogleCallback(req: Request, res: Response): Promise<void> {
+    const code = typeof req.body?.code === "string" ? req.body.code.trim() : "";
+    if (!code) {
+      res.status(HTTP.BAD_REQUEST).json({ error: "code is required." });
+      return;
+    }
+    try {
+      const result = await this.authService.exchangeGoogleCallbackCode(code);
+      res.status(HTTP.OK).json(result);
+    } catch (e) {
+      if (e instanceof Error && e.message === "GOOGLE_INVALID_CALLBACK_CODE") {
+        res.status(HTTP.BAD_REQUEST).json({ error: "Invalid or expired callback code. Please sign in again." });
         return;
       }
       throw e;

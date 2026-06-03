@@ -41,7 +41,11 @@ export class SignUpAction implements ISignUpAction {
 
     const session = await this.sessionTokensIssuer.issueForUser(user);
 
-    await this.welcomeEmailSender.sendWelcome({ to: user.email, name: user.name ?? undefined });
+    await this.welcomeEmailSender
+      .sendWelcome({ to: user.email, name: user.name ?? undefined })
+      .catch((err: unknown) =>
+        console.warn("[SignUpAction] Welcome email failed (non-fatal):", err)
+      );
     await this.eventPublisher.publish({
       type: AUTH_EVENTS.USER_REGISTERED,
       payload: {
