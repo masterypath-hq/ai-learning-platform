@@ -79,7 +79,6 @@ export class GoogleAuthProvider implements IGoogleAuthProvider {
     }
     const key = jwksCache.keys.find((k) => k.kid === kid);
     if (!key) {
-      // kid not found — cache may be stale, force a refresh and try once more
       const res = await fetch(GOOGLE_JWKS_URL);
       if (!res.ok) throw new Error(`GOOGLE_JWKS_FETCH_FAILED: ${res.status}`);
       const data = (await res.json()) as { keys: JwksKey[] };
