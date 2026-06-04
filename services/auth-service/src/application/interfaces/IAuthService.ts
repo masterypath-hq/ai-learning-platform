@@ -2,6 +2,7 @@ import type {
   SignUpResponse,
   SignInResponse,
   GoogleSignInResponse,
+  GithubSignInResponse,
   ForgotPasswordResponse,
   ResetPasswordResponse,
   UserProfileResponse,
@@ -16,6 +17,10 @@ export interface IAuthService {
   getGoogleAuthUrl(): Promise<string>;
   createGoogleCallbackSession(result: GoogleSignInResponse): Promise<string>;
   exchangeGoogleCallbackCode(code: string): Promise<GoogleSignInResponse>;
+  githubSignIn(code: string, state: string): Promise<GithubSignInResponse>;
+  getGithubAuthUrl(): Promise<string>;
+  createGithubCallbackSession(result: GithubSignInResponse): Promise<string>;
+  exchangeGithubCallbackCode(code: string): Promise<GithubSignInResponse>;
   forgotPassword(email: string, resetLinkBaseUrl: string): Promise<ForgotPasswordResponse>;
   resetPassword(token: string, newPassword: string): Promise<ResetPasswordResponse>;
   getMe(userId: string): Promise<UserProfileResponse>;

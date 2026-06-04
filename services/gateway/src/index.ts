@@ -72,6 +72,9 @@ app.post("/api/auth/reset-password", authProxy);
 app.get("/api/auth/google", authProxy);
 app.get("/api/auth/google/callback", authProxy);
 app.post("/api/auth/google/exchange", authProxy);
+app.get("/api/auth/github", authProxy);
+app.get("/api/auth/github/callback", authProxy);
+app.post("/api/auth/github/exchange", authProxy);
 
 app.post("/api/v1/auth/sign-in", signInRateLimit, authProxyV1);
 app.post("/api/v1/auth/sign-up", authProxyV1);
@@ -81,6 +84,9 @@ app.post("/api/v1/auth/reset-password", authProxyV1);
 app.get("/api/v1/auth/google", authProxyV1);
 app.get("/api/v1/auth/google/callback", authProxyV1);
 app.post("/api/v1/auth/google/exchange", authProxyV1);
+app.get("/api/v1/auth/github", authProxyV1);
+app.get("/api/v1/auth/github/callback", authProxyV1);
+app.post("/api/v1/auth/github/exchange", authProxyV1);
 
 // ── Protected auth (JWT) — must come after explicit public routes above ──
 app.use("/api/auth", verifyJwt, protectedAuthProxy);

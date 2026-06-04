@@ -24,11 +24,15 @@ import { InMemoryEventPublisher } from "./infrastructure/events/InMemoryEventPub
 import { SignUpAction } from "./application/actions/SignUpAction.js";
 import { SignInAction } from "./application/actions/SignInAction.js";
 import { GoogleSignInAction } from "./application/actions/GoogleSignInAction.js";
+import { GithubSignInAction } from "./application/actions/GithubSignInAction.js";
 import { ForgotPasswordAction } from "./application/actions/ForgotPasswordAction.js";
 import { ResetPasswordAction } from "./application/actions/ResetPasswordAction.js";
 import { GoogleAuthProvider } from "./infrastructure/google/GoogleAuthProvider.js";
 import { RedisGoogleStateStore } from "./infrastructure/google/RedisGoogleStateStore.js";
 import { RedisGoogleCallbackStore } from "./infrastructure/google/RedisGoogleCallbackStore.js";
+import { GithubAuthProvider } from "./infrastructure/github/GithubAuthProvider.js";
+import { RedisGithubStateStore } from "./infrastructure/github/RedisGithubStateStore.js";
+import { RedisGithubCallbackStore } from "./infrastructure/github/RedisGithubCallbackStore.js";
 import { AuthService } from "./application/services/AuthService.js";
 import { AuthController } from "./interfaces/http/controllers/AuthController.js";
 import { AuthResource } from "./interfaces/http/resources/AuthResource.js";
@@ -228,17 +232,47 @@ export async function createCompositionRoot() {
   const googleStateStore = new RedisGoogleStateStore(redis!);
   const googleCallbackStore = new RedisGoogleCallbackStore(redis!);
 
+  const githubClientId = process.env.GITHUB_CLIENT_ID ?? "";
+  const githubClientSecret = process.env.GITHUB_CLIENT_SECRET ?? "";
+  const githubRedirectUri =
+    process.env.GITHUB_REDIRECT_URI ?? "http://localhost:3001/api/v1/auth/github/callback";
+
+  const githubAuthProvider = new GithubAuthProvider(
+    githubClientId,
+    githubClientSecret,
+    githubRedirectUri
+  );
+  const githubSignInAction = new GithubSignInAction(
+    userRepo,
+    sessionTokensIssuer,
+    githubAuthProvider,
+    emailSender,
+    eventPublisher
+  );
+  const githubStateStore = new RedisGithubStateStore(redis!);
+  const githubCallbackStore = new RedisGithubCallbackStore(redis!);
+
+  if (githubClientId) {
+    console.log("[auth-service] GitHub OAuth configured");
+  } else {
+    console.log("[auth-service] GITHUB_CLIENT_ID not set — GitHub sign-in disabled");
+  }
+
   const authService = new AuthService(
     signUpAction,
     signInAction,
     googleSignInAction,
+    githubSignInAction,
     forgotPasswordAction,
     resetPasswordAction,
     getMeAction,
     refreshTokensAction,
     googleAuthProvider,
     googleStateStore,
-    googleCallbackStore
+    googleCallbackStore,
+    githubAuthProvider,
+    githubStateStore,
+    githubCallbackStore
   );
   const authController = new AuthController(authService, googleRedirectFrontendUrl);
   const app = new App(authController, bearerAuth);
