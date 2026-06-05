@@ -58,6 +58,13 @@ export interface GoogleSignInResponse {
   isNewUser: boolean;
 }
 
+export interface GithubSignInResponse {
+  userId: string;
+  email: string;
+  tokens: AuthTokens;
+  isNewUser: boolean;
+}
+
 export interface ForgotPasswordResponse {
   message: string;
 }
@@ -86,6 +93,7 @@ export interface RefreshTokensResponse {
 export const AUTH_EVENTS = {
   USER_REGISTERED: "auth.user.registered.v1",
   USER_SIGNED_IN_GOOGLE: "auth.user.signed_in_google.v1",
+  USER_SIGNED_IN_GITHUB: "auth.user.signed_in_github.v1",
   PASSWORD_RESET_REQUESTED: "auth.password_reset.requested.v1",
   PASSWORD_RESET_COMPLETED: "auth.password_reset.completed.v1",
 } as const;

@@ -2,7 +2,7 @@
  * User model — domain entity. No framework or DB imports. (SOLID: S — single responsibility.)
  */
 
-export type AuthProvider = "local" | "google";
+export type AuthProvider = "local" | "google" | "github";
 export type PlanTier = "free" | "pro" | "institution";
 
 export interface UserProps {
@@ -15,6 +15,7 @@ export interface UserProps {
   emailVerifiedAt: Date | null;
   authProvider: AuthProvider;
   googleId: string | null;
+  githubId: string | null;
 }
 
 export class User {
@@ -58,6 +59,10 @@ export class User {
 
   get googleId(): string | null {
     return this.props.googleId;
+  }
+
+  get githubId(): string | null {
+    return this.props.githubId;
   }
 
   toJSON(): UserProps {

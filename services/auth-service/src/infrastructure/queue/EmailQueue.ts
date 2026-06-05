@@ -1,10 +1,10 @@
 import { Queue } from "bullmq";
-import { Redis } from "ioredis";
 import type {
   WelcomeEmailParams,
   PasswordResetEmailParams,
   PasswordChangedEmailParams,
 } from "../../application/interfaces/IEmailSender.js";
+import { createBullmqConnection } from "./bullmqConnection.js";
 
 export type EmailJobData =
   | { type: "welcome"; params: WelcomeEmailParams }
@@ -14,9 +14,8 @@ export type EmailJobData =
 export const EMAIL_QUEUE_NAME = "email";
 
 export function createEmailQueue(redisUrl: string): Queue<EmailJobData> {
-  const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
   return new Queue<EmailJobData>(EMAIL_QUEUE_NAME, {
-    connection,
+    connection: createBullmqConnection(redisUrl),
     defaultJobOptions: {
       attempts: 3,
       backoff: { type: "exponential", delay: 2000 },

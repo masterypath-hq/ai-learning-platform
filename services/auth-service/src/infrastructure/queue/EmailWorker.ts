@@ -1,11 +1,9 @@
 import { Worker } from "bullmq";
-import { Redis } from "ioredis";
 import type { IEmailSender } from "../../application/interfaces/IEmailSender.js";
+import { createBullmqConnection } from "./bullmqConnection.js";
 import { EMAIL_QUEUE_NAME, type EmailJobData } from "./EmailQueue.js";
 
 export function createEmailWorker(redisUrl: string, emailSender: IEmailSender): Worker<EmailJobData> {
-  const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
-
   const worker = new Worker<EmailJobData>(
     EMAIL_QUEUE_NAME,
     async (job) => {
@@ -22,7 +20,7 @@ export function createEmailWorker(redisUrl: string, emailSender: IEmailSender): 
           break;
       }
     },
-    { connection }
+    { connection: createBullmqConnection(redisUrl) }
   );
 
   worker.on("completed", (job) => {

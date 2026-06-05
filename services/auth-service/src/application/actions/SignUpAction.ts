@@ -35,6 +35,7 @@ export class SignUpAction implements ISignUpAction {
       emailVerifiedAt: null,
       authProvider: "local",
       googleId: null,
+      githubId: null,
     });
 
     await this.userRepo.save(user);
