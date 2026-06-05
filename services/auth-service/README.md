@@ -43,14 +43,38 @@ Microservice for user authentication: sign up, sign in, forgot password, reset p
 
 ## Environment variables
 
-Create a `.env` from `.env.example`. Summary:
+Create a `.env` from the repo root [`.env.example`](../../.env.example). Full reference: [root README — Environment variables](../../README.md#environment-variables).
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes (unless local DB) | `postgresql://auth:auth@localhost:5432/auth` | Postgres connection string (Supabase or local) |
-| `JWT_SECRET` | Yes in production | `dev-secret-change-in-production` | Secret used to sign JWTs; use a long random value in prod |
-| `RESET_LINK_BASE_URL` | No | From request `Host` | Base URL for “Reset password” links in emails (e.g. `https://app.example.com`) |
-| `PORT` | No | `3001` | Port the HTTP server listens on |
+| `DATABASE_URL` | Yes (unless local DB) | `postgresql://auth:auth@localhost:5432/auth` | Postgres (Supabase Session pooler recommended) |
+| `JWT_SECRET` | Yes in production | `dev-secret-change-in-production` | Signs JWTs; gateway must use the same value |
+| `REDIS_URL` | **Yes** | — | Profile cache, OAuth state, **BullMQ email queue**; service fails without it |
+| `RESEND_API_KEY` | No | — | Resend API; without it emails log to console |
+| `RESEND_FROM_ADDRESS` | No | `onboarding@resend.dev` | Verified sender in Resend |
+| `RESET_LINK_BASE_URL` | No | From request `Host` | Password-reset link base (gateway URL in Docker) |
+| `GOOGLE_CLIENT_ID` | No | — | Google OAuth; disabled if empty |
+| `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth secret |
+| `GOOGLE_REDIRECT_URI` | No | localhost callback | Auth-service Google callback |
+| `GOOGLE_REDIRECT_FRONTEND_URL` | No | `http://localhost:3000/auth/callback` | Frontend after Google OAuth |
+| `GITHUB_CLIENT_ID` | No | — | GitHub OAuth; disabled if empty |
+| `GITHUB_CLIENT_SECRET` | No | — | GitHub OAuth secret |
+| `GITHUB_REDIRECT_URI` | No | localhost callback | Auth-service GitHub callback |
+| `PORT` | No | `3001` | HTTP listen port |
+
+### Redis
+
+`REDIS_URL` is required. Locally: `redis://localhost:6379` after `npm run dev:redis`. Docker: `redis://redis:6379` (set by compose). Production: Render Redis or Upstash URL.
+
+### Render deploy checklist
+
+- [ ] **Redis add-on** created; `REDIS_URL` set on the service
+- [ ] `DATABASE_URL` — Supabase **Session pooler** URI
+- [ ] `JWT_SECRET` — long random string
+- [ ] `RESEND_API_KEY` and `RESEND_FROM_ADDRESS` for real emails
+- [ ] OAuth redirect URIs match production URLs
+- [ ] Migrations applied: `npm run migrate:auth` (against prod DB from your machine or CI)
+- [ ] Logs show `Email queue ready (BullMQ)` after deploy
 
 ## Database: Supabase (Postgres)
 

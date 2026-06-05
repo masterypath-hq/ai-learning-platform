@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "dev:redis": "docker compose up redis -d",
     "dev:auth": "npm run dev -w @ai-learning-platform/auth-service",
     "dev:gateway": "npm run dev -w @ai-learning-platform/gateway",
     "dev:course": "npm run dev -w @ai-learning-platform/course-service",
