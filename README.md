@@ -22,26 +22,105 @@ Monorepo for the AI-powered learning platform. See [PRD](docs/PRD.md) for produc
 # Install dependencies (from repo root)
 npm install
 
+# Copy env template and fill in secrets (see Environment variables below)
+cp .env.example .env
+
+# Start Redis only (needed for npm run dev:auth / dev:gateway)
+npm run dev:redis
+
 # Run services locally
 npm run dev:auth
 npm run dev:gateway
 npm run dev:course
 ```
 
-## Running with Docker
+## Environment variables
 
-**Using Supabase:** Copy `.env.example` to `.env` in the **repo root** (same folder as `docker-compose.yml`). Set `DATABASE_URL` to your Supabase **Session pooler** URI (IPv4; required for Docker):
+All services read from a single **`.env` at the repo root** (same folder as `docker-compose.yml`). Copy [`.env.example`](.env.example) and fill in values. Never commit `.env`.
+
+**Minimum to run auth-service:** `DATABASE_URL`, `JWT_SECRET`, `REDIS_URL`.
+
+### Redis in the stack
+
+One `REDIS_URL` powers:
+
+| Consumer | Use |
+|----------|-----|
+| **auth-service** | GET `/me` profile cache (15 min TTL), Google/GitHub OAuth state, **BullMQ email queue** |
+| **gateway** | Free-tier chat rate limiting |
+
+Auth-service **fails at startup** if `REDIS_URL` is missing.
+
+### Redis by environment
+
+| Environment | `REDIS_URL` | How |
+|-------------|-------------|-----|
+| **Docker Compose** | `redis://redis:6379` | Set automatically in [`docker-compose.yml`](docker-compose.yml); Redis container included |
+| **Local `npm run dev:*`** | `redis://localhost:6379` | Run `npm run dev:redis` (starts Redis container) or install Redis locally |
+| **Render (production)** | From Redis add-on | Create **Render Redis** or **Upstash** → copy connection URL → set `REDIS_URL` on the auth-service (and gateway when deployed) |
+
+### Variable reference
+
+| Variable | Service | Required | Default | Description |
+|----------|---------|----------|---------|-------------|
+| `JWT_SECRET` | auth, gateway, course | Yes (prod) | dev fallback in auth/course | Signs and verifies JWTs; must match across services |
+| `DATABASE_URL` | auth, course | Yes | local Postgres URL | Supabase Session pooler URI recommended for Docker/Render |
+| `COURSE_DATABASE_URL` | course | No | `DATABASE_URL` | Separate Postgres for course-service |
+| `REDIS_URL` | auth, gateway | Yes (auth) | `redis://localhost:6379` (gateway) | Redis for profile cache, email queue, OAuth state, rate limits |
+| `RESEND_API_KEY` | auth | No | — | Resend API key; without it emails log to console |
+| `RESEND_FROM_ADDRESS` | auth | No | `onboarding@resend.dev` | Sender address (must be verified in Resend) |
+| `RESET_LINK_BASE_URL` | auth | No | request Host | Base URL for password-reset links (use gateway URL in Docker) |
+| `GOOGLE_CLIENT_ID` | auth | No | — | Google OAuth; disabled if empty |
+| `GOOGLE_CLIENT_SECRET` | auth | No | — | Google OAuth secret |
+| `GOOGLE_REDIRECT_URI` | auth | No | localhost callback | Google OAuth callback on auth-service |
+| `GOOGLE_REDIRECT_FRONTEND_URL` | auth | No | `http://localhost:3000/auth/callback` | Where to send user after Google OAuth |
+| `GITHUB_CLIENT_ID` | auth | No | — | GitHub OAuth; disabled if empty |
+| `GITHUB_CLIENT_SECRET` | auth | No | — | GitHub OAuth secret |
+| `GITHUB_REDIRECT_URI` | auth | No | localhost callback | GitHub OAuth callback on auth-service |
+| `FRONTEND_URL` | gateway | No | `http://localhost:3000` | Frontend origin (reset-password redirect) |
+| `FRONTEND_RESET_PASSWORD_PATH` | gateway | No | `/reset-password` | Path on frontend for reset form |
+| `AUTH_SERVICE_URL` | gateway | No | `http://auth-service:3001` | Auth service upstream |
+| `COURSE_SERVICE_URL` | gateway | No | `http://course-service:3003` | Course service upstream |
+| `AI_SERVICE_URL` | gateway | No | `http://ai-service:5002` | AI service upstream |
+| `PROGRESS_SERVICE_URL` | gateway | No | `http://progress-service:5004` | Progress service upstream |
+| `FREE_TIER_DAILY_LIMIT` | gateway | No | `5` | Daily chat requests for free tier |
+| `SIGN_IN_MAX_ATTEMPTS` | gateway | No | `5` | Sign-in rate limit max attempts |
+| `SIGN_IN_WINDOW_SECONDS` | gateway | No | `900` | Sign-in rate limit window (seconds) |
+| `ANTHROPIC_API_KEY` | course | Yes (AI features) | — | Claude API for course generation |
+| `PORT` | each service | No | 3001 / 4000 / 3003 | HTTP listen port |
+
+### Secret management (production)
+
+For v1, **platform environment variables** are your secret manager (no GCP/AWS SDK required):
+
+**Render (auth-service):**
+
+1. Render Dashboard → your service → **Environment**
+2. Add: `DATABASE_URL`, `JWT_SECRET`, `REDIS_URL`, `RESEND_API_KEY`, OAuth secrets, etc.
+3. Create a **Redis** add-on (or Upstash) and paste its URL as `REDIS_URL`
+4. Redeploy after changing env vars
+
+**Railway** (gateway/course if deployed there): Project → service → **Variables** tab — same variable names.
+
+**GitHub Actions** deploy secrets are separate — see [CI/CD](#cicd-github-actions) below. Do not put production secrets in the repo.
+
+### Database (Supabase)
 
 1. Supabase Dashboard → your project → **Connect** → **Session** tab.
-2. Copy the connection string (URI).
-3. Paste it as `DATABASE_URL=` in `.env` (no quotes).
+2. Copy the pooler connection string (URI).
+3. Paste as `DATABASE_URL=` in `.env` (no quotes). If the password contains `@`, use `%40`.
 
 If you use the direct URI (`db....supabase.co`) or the wrong region, you may see `ENETUNREACH` or "Tenant or user not found".
 
+## Running with Docker
+
 ```bash
 cp .env.example .env
+# Edit .env: set DATABASE_URL (Supabase Session pooler), JWT_SECRET, etc.
 docker compose up -d
 ```
+
+Docker Compose starts **Redis** automatically and sets `REDIS_URL=redis://redis:6379` on auth-service and gateway.
 
 ## CI/CD (GitHub Actions)
 
