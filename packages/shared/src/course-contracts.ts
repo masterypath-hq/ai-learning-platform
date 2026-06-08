@@ -138,6 +138,25 @@ export interface ListCoursesResponse {
   limit: number;
 }
 
+// ----- MasteryPath track courses (curated, admin-seeded) -----
+
+export interface TrackCourse {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  primaryLanguage: string | null;
+  thumbnailUrl: string | null;
+  durationWeeks: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListTrackCoursesResponse {
+  courses: TrackCourse[];
+  total: number;
+}
+
 // ----- Domain events (for choreography) -----
 
 export const COURSE_EVENTS = {

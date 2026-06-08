@@ -37,6 +37,12 @@ export class CourseController {
     res.status(HTTP.OK).json(result);
   }
 
+  async listAllAvailableCourses(_req: Request, res: Response): Promise<void> {
+    console.log('yes');
+    const result = await this.courseService.listAllCourses();
+    res.status(HTTP.OK).json(result);
+  }
+
   async getCourseStatus(req: Request, res: Response): Promise<void> {
     const userId = (req as AuthedRequest).userId;
     const { id } = req.params;

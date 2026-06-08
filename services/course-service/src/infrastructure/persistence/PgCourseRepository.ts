@@ -2,7 +2,7 @@ import type { Pool } from "pg";
 import { Course } from "../../domain/models/Course.js";
 import type { ICourseRepository, CourseFilters, CoursePagination, FindByUserIdResult, CourseDetails } from "../../application/interfaces/ICourseRepository.js";
 import { CourseStatus } from "@ai-learning-platform/shared";
-import type { Subject, CourseTrack, CourseLevel } from "@ai-learning-platform/shared";
+import type { Subject, CourseTrack, CourseLevel, TrackCourse } from "@ai-learning-platform/shared";
 
 const SELECT_COLS =
   "id, user_id, subject, track, level, title, description, learning_objectives, prerequisites, " +
@@ -126,6 +126,37 @@ export class PgCourseRepository implements ICourseRepository {
         id,
       ]
     );
+  }
+
+  async findAllPublished(): Promise<TrackCourse[]> {
+    type TrackRow = {
+      id: string;
+      slug: string;
+      title: string;
+      description: string | null;
+      primary_language: string | null;
+      thumbnail_url: string | null;
+      duration_weeks: number | null;
+      created_at: Date;
+      updated_at: Date;
+    };
+
+    const result = await this.pool.query<TrackRow>(
+      `SELECT id, slug, title, description, primary_language, thumbnail_url, duration_weeks, created_at, updated_at
+       FROM courses WHERE is_published = true ORDER BY title ASC`
+    );
+
+    return result.rows.map((r) => ({
+      id: r.id,
+      slug: r.slug,
+      title: r.title,
+      description: r.description,
+      primaryLanguage: r.primary_language,
+      thumbnailUrl: r.thumbnail_url,
+      durationWeeks: r.duration_weeks,
+      createdAt: r.created_at.toISOString(),
+      updatedAt: r.updated_at.toISOString(),
+    }));
   }
 
   private rowToCourse(row: CourseRow): Course {

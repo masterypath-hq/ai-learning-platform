@@ -1,5 +1,5 @@
 import type { Course } from "../../domain/models/Course.js";
-import type { Subject, CourseStatus } from "@ai-learning-platform/shared";
+import type { Subject, CourseStatus, TrackCourse } from "@ai-learning-platform/shared";
 
 export interface CourseFilters {
   subject?: Subject;
@@ -35,4 +35,5 @@ export interface ICourseRepository {
   ): Promise<FindByUserIdResult>;
   updateStatus(id: string, status: CourseStatus, errorMessage?: string): Promise<void>;
   updateDetails(id: string, details: CourseDetails): Promise<void>;
+  findAllPublished(): Promise<TrackCourse[]>;
 }

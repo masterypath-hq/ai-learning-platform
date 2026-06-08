@@ -9,6 +9,7 @@ import type {
   CourseStatusResponse,
   CourseResponse,
   ListCoursesResponse,
+  ListTrackCoursesResponse,
   Subject,
   CourseStatus,
 } from "@ai-learning-platform/shared";
@@ -39,6 +40,11 @@ export class CourseService implements ICourseService {
       title: course.title ?? undefined,
       errorMessage: course.errorMessage ?? undefined,
     };
+  }
+
+  async listAllCourses(): Promise<ListTrackCoursesResponse> {
+    const courses = await this.courseRepo.findAllPublished();
+    return { courses, total: courses.length };
   }
 
   async getCourse(courseId: string, userId: string): Promise<CourseResponse> {

@@ -6,8 +6,13 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js"
+    "dev": "ENV_FILE_PATH=../../.env tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "migrate:up": "node-pg-migrate up --migrations-dir db/migrations --migrations-table pgmigrations_course --envPath ../../.env",
+    "migrate:down": "node-pg-migrate down --migrations-dir db/migrations --migrations-table pgmigrations_course --envPath ../../.env",
+    "migrate:create": "node-pg-migrate create --migrations-dir db/migrations --migrations-table pgmigrations_course --envPath ../../.env -j js",
+    "migrate:fake": "node-pg-migrate up --fake --migrations-dir db/migrations --migrations-table pgmigrations_course --envPath ../../.env",
+    "seed:courses": "node db/seeds/courses.js"
   },
   "dependencies": {
     "@ai-learning-platform/shared": "*",
@@ -24,6 +29,7 @@
     "@types/node": "^20.10.0",
     "@types/pg": "^8.10.9",
     "@types/uuid": "^9.0.7",
+    "node-pg-migrate": "^8.0.4",
     "tsx": "^4.6.2",
     "typescript": "^5.3.0"
   }

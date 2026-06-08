@@ -4,6 +4,7 @@ import type {
   CourseStatusResponse,
   CourseResponse,
   ListCoursesResponse,
+  ListTrackCoursesResponse,
   Subject,
   CourseStatus,
 } from "@ai-learning-platform/shared";
@@ -20,4 +21,5 @@ export interface ICourseService {
     page?: number,
     limit?: number
   ): Promise<ListCoursesResponse>;
+  listAllCourses(): Promise<ListTrackCoursesResponse>;
 }

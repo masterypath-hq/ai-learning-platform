@@ -11,6 +11,11 @@ export class CourseResource {
   ) {}
 
   register(): void {
+    this.app.get(
+      "/api/v1/courses/all",
+      this.wrapAsync((req, res) => this.controller.listAllAvailableCourses(req, res))
+    );
+
     this.app.post(
       "/api/v1/courses/generate",
       this.authMiddleware,
