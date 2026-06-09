@@ -94,6 +94,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      RAILWAY_FRONTEND_SERVICE_ID: ${{ secrets.RAILWAY_FRONTEND_SERVICE_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -103,7 +106,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Deploy to Vercel
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: env.VERCEL_TOKEN != ''
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -113,7 +116,7 @@ jobs:
           vercel-args: "--prod"
 
       - name: Deploy to Railway
-        if: ${{ secrets.VERCEL_TOKEN == '' && secrets.RAILWAY_FRONTEND_SERVICE_ID != '' }}
+        if: env.VERCEL_TOKEN == '' && env.RAILWAY_FRONTEND_SERVICE_ID != ''
         run: |
           npm install -g @railway/cli
           railway up --service "${{ secrets.RAILWAY_FRONTEND_SERVICE_ID }}" --detach
@@ -121,7 +124,7 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
       - name: Require frontend deploy credentials
-        if: ${{ secrets.VERCEL_TOKEN == '' && secrets.RAILWAY_FRONTEND_SERVICE_ID == '' }}
+        if: env.VERCEL_TOKEN == '' && env.RAILWAY_FRONTEND_SERVICE_ID == ''
         run: |
           echo "::error::Set VERCEL_TOKEN (and VERCEL_ORG_ID, VERCEL_PROJECT_ID) or RAILWAY_FRONTEND_SERVICE_ID + RAILWAY_TOKEN"
           exit 1
