@@ -1,3 +1,4 @@
+import cors from "cors";
 import express from "express";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 import type { AuthController } from "./controllers/AuthController.js";
@@ -8,6 +9,7 @@ export class App {
 
   constructor(authController: AuthController, bearerAuth: RequestHandler) {
     this.express = express();
+    this.express.use(cors({ origin: "*", allowedHeaders: ["Content-Type", "Authorization"], methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] }));
     this.express.use(express.json());
 
     const authResource = new AuthResource(this.express, authController, bearerAuth);
