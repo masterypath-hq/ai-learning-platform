@@ -1,4 +1,5 @@
 import "dotenv/config";
+import cors from "cors";
 import express from "express";
 import { loadConfig } from "./config/env.js";
 import { getRedisClient, disconnectRedis } from "./lib/redis.js";
@@ -22,6 +23,8 @@ const signInRateLimit = createSignInRateLimit({
 });
 
 const app = express();
+
+app.use(cors({ origin: "*", allowedHeaders: ["Content-Type", "Authorization"], methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] }));
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "gateway" });
