@@ -35,4 +35,18 @@ export class CourseController {
       throw e;
     }
   }
+
+  async getModulesByCourse(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    try {
+      const result = await this.courseService.getModulesByCourseId(id);
+      res.status(HTTP.OK).json(result);
+    } catch (e) {
+      if (e instanceof Error && e.message === "COURSE_NOT_FOUND") {
+        res.status(HTTP.NOT_FOUND).json({ error: "Course not found." });
+        return;
+      }
+      throw e;
+    }
+  }
 }

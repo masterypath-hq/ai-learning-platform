@@ -110,3 +110,22 @@ export interface ListEnrolledCoursesResponse {
   courses: EnrolledCourse[];
   total: number;
 }
+
+export interface ModuleListItem {
+  id: string;
+  phase: PhaseLevel;
+  title: string;
+  description: string | null;
+  orderIndex: number;
+  durationWeeks: number | null;
+  isPublished: boolean;
+}
+
+export interface CourseWithModules extends Omit<CourseResponse, "modules"> {
+  modules: ModuleListItem[];
+}
+
+export interface ListModulesResponse {
+  course: CourseWithModules;
+  total: number;
+}

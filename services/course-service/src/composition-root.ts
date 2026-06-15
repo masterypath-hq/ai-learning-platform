@@ -103,7 +103,7 @@ export async function createCompositionRoot() {
   const enrollmentRepo = new PgEnrollmentRepository(pool);
 
   const getCourseAction = new GetCourseAction(courseRepo, moduleRepo, lessonRepo);
-  const courseService = new CourseService(getCourseAction, courseRepo, enrollmentRepo);
+  const courseService = new CourseService(getCourseAction, courseRepo, enrollmentRepo, moduleRepo);
   const courseController = new CourseController(courseService);
   const jwtSecret = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
   const authMiddleware = createAuthMiddleware(jwtSecret);

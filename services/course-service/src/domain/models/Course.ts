@@ -1,4 +1,4 @@
-import type { TrackSlug } from "@ai-learning-platform/shared";
+import type { TrackSlug, CourseResponse } from "@ai-learning-platform/shared";
 
 export interface CourseProps {
   id: string;
@@ -30,6 +30,21 @@ export class Course {
   get isPublished(): boolean { return this.props.isPublished; }
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
+
+  toResponse(): Omit<CourseResponse, "modules"> {
+    return {
+      id: this.props.id,
+      slug: this.props.slug,
+      title: this.props.title,
+      description: this.props.description,
+      primaryLanguage: this.props.primaryLanguage,
+      thumbnailUrl: this.props.thumbnailUrl,
+      durationWeeks: this.props.durationWeeks,
+      isPublished: this.props.isPublished,
+      createdAt: this.props.createdAt.toISOString(),
+      updatedAt: this.props.updatedAt.toISOString(),
+    };
+  }
 
   toJSON(): CourseProps {
     return { ...this.props };

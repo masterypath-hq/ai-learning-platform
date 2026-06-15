@@ -24,6 +24,10 @@ export class CourseResource {
       "/api/v1/courses/:id",
       this.wrapAsync((req, res) => this.controller.getCourse(req, res))
     );
+    this.app.get(
+      "/api/v1/courses/:id/modules",
+      this.wrapAsync((req, res) => this.controller.getModulesByCourse(req, res))
+    );
   }
 
   private wrapAsync(handler: AsyncHandler) {
