@@ -3,11 +3,8 @@ import pg from "pg";
 import { PgCourseRepository } from "./infrastructure/persistence/PgCourseRepository.js";
 import { PgModuleRepository } from "./infrastructure/persistence/PgModuleRepository.js";
 import { PgLessonRepository } from "./infrastructure/persistence/PgLessonRepository.js";
-import { ClaudeContentGenerator } from "./infrastructure/ai/ClaudeContentGenerator.js";
-import { InMemoryEventPublisher } from "./infrastructure/events/InMemoryEventPublisher.js";
-import { GenerateCourseAction } from "./application/actions/GenerateCourseAction.js";
+import { PgEnrollmentRepository } from "./infrastructure/persistence/PgEnrollmentRepository.js";
 import { GetCourseAction } from "./application/actions/GetCourseAction.js";
-import { ListUserCoursesAction } from "./application/actions/ListUserCoursesAction.js";
 import { CourseService } from "./application/services/CourseService.js";
 import { CourseController } from "./interfaces/http/controllers/CourseController.js";
 import { createAuthMiddleware } from "./interfaces/http/middleware/authMiddleware.js";
@@ -23,10 +20,6 @@ function normalizeConnectionString(value: string): string {
   return s.trim();
 }
 
-/**
- * Parse postgresql:// or postgres:// URL without using URL() so passwords
- * containing @, :, #, etc. work (no URL-encoding required).
- */
 function parseConnectionString(connectionString: string): pg.PoolConfig {
   const withoutProtocol = connectionString.replace(/^\s*postgres(ql)?:\/\//i, "").trim();
   const atIndex = withoutProtocol.lastIndexOf("@");
@@ -51,7 +44,6 @@ function parseConnectionString(connectionString: string): pg.PoolConfig {
   return { user, password, host, port, database, ssl };
 }
 
-/** Use IPv4 when available. Skip for Supabase pooler — use hostname as-is for tenant routing. */
 async function resolveHostToIPv4(host: string): Promise<string> {
   if (host === "localhost" || host.startsWith("127.")) return host;
   if (host.includes("pooler.supabase.com")) return host;
@@ -71,7 +63,6 @@ async function resolveHostToIPv4(host: string): Promise<string> {
 }
 
 export async function createCompositionRoot() {
-  // Database
   const raw = process.env.COURSE_DATABASE_URL ?? process.env.DATABASE_URL;
   const connectionString =
     raw && raw.trim() !== ""
@@ -106,44 +97,16 @@ export async function createCompositionRoot() {
     pool = new pg.Pool(poolConfig);
   }
 
-  // Repositories
   const courseRepo = new PgCourseRepository(pool);
   const moduleRepo = new PgModuleRepository(pool);
   const lessonRepo = new PgLessonRepository(pool);
+  const enrollmentRepo = new PgEnrollmentRepository(pool);
 
-  // AI content generator
-  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-  if (!anthropicApiKey) {
-    console.error("[course-service] ANTHROPIC_API_KEY is not set. Course generation will fail.");
-  }
-  const aiGenerator = new ClaudeContentGenerator(anthropicApiKey ?? "");
-
-  // Events
-  const eventPublisher = new InMemoryEventPublisher();
-
-  // Actions
-  const generateCourseAction = new GenerateCourseAction(
-    courseRepo,
-    moduleRepo,
-    lessonRepo,
-    aiGenerator,
-    eventPublisher
-  );
   const getCourseAction = new GetCourseAction(courseRepo, moduleRepo, lessonRepo);
-  const listUserCoursesAction = new ListUserCoursesAction(courseRepo);
-
-  // Service
-  const courseService = new CourseService(
-    generateCourseAction,
-    getCourseAction,
-    listUserCoursesAction,
-    courseRepo
-  );
-
-  // HTTP
+  const courseService = new CourseService(getCourseAction, courseRepo, enrollmentRepo);
+  const courseController = new CourseController(courseService);
   const jwtSecret = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
   const authMiddleware = createAuthMiddleware(jwtSecret);
-  const courseController = new CourseController(courseService);
   const app = new App(courseController, authMiddleware);
 
   return { app, pool };

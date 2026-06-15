@@ -10,7 +10,6 @@ import type {
   PracticeExerciseResponse,
 } from "@ai-learning-platform/shared";
 
-/** Fetches full course with modules and lessons, enforces ownership. (SOLID: S.) */
 export class GetCourseAction implements IGetCourseAction {
   constructor(
     private readonly courseRepo: ICourseRepository,
@@ -18,10 +17,9 @@ export class GetCourseAction implements IGetCourseAction {
     private readonly lessonRepo: ILessonRepository
   ) {}
 
-  async execute(courseId: string, userId: string): Promise<CourseResponse> {
+  async execute(courseId: string): Promise<CourseResponse> {
     const course = await this.courseRepo.findById(courseId);
     if (!course) throw new Error("COURSE_NOT_FOUND");
-    if (course.userId !== userId) throw new Error("COURSE_FORBIDDEN");
 
     const modules = await this.moduleRepo.findByCourseId(courseId);
 
@@ -54,11 +52,14 @@ export class GetCourseAction implements IGetCourseAction {
 
           return {
             id: lesson.id,
-            position: lesson.position,
+            slug: lesson.slug,
             title: lesson.title,
-            explanationContent: lesson.explanationContent,
-            keyTakeaways: lesson.keyTakeaways,
-            estimatedDurationMinutes: lesson.estimatedDurationMinutes,
+            contentUrl: lesson.contentUrl,
+            contentType: lesson.contentType,
+            durationMins: lesson.durationMins,
+            orderIndex: lesson.orderIndex,
+            isPublished: lesson.isPublished,
+            isProject: lesson.isProject,
             workedExamples: examples,
             practiceExercise,
           };
@@ -66,10 +67,12 @@ export class GetCourseAction implements IGetCourseAction {
 
         return {
           id: mod.id,
-          position: mod.position,
-          theme: mod.theme,
-          keyConcepts: mod.keyConcepts,
-          estimatedDurationMinutes: mod.estimatedDurationMinutes,
+          phase: mod.phase,
+          title: mod.title,
+          description: mod.description,
+          orderIndex: mod.orderIndex,
+          durationWeeks: mod.durationWeeks,
+          isPublished: mod.isPublished,
           lessons: lessonResponses,
         };
       })
@@ -77,16 +80,13 @@ export class GetCourseAction implements IGetCourseAction {
 
     return {
       id: course.id,
-      userId: course.userId,
-      subject: course.subject,
-      track: course.track,
-      level: course.level,
-      title: course.title ?? "",
-      description: course.description ?? "",
-      learningObjectives: course.learningObjectives,
-      prerequisites: course.prerequisites,
-      estimatedDurationMinutes: course.estimatedDurationMinutes ?? 0,
-      status: course.status,
+      slug: course.slug,
+      title: course.title,
+      description: course.description,
+      primaryLanguage: course.primaryLanguage,
+      thumbnailUrl: course.thumbnailUrl,
+      durationWeeks: course.durationWeeks,
+      isPublished: course.isPublished,
       modules: moduleResponses,
       createdAt: course.createdAt.toISOString(),
       updatedAt: course.updatedAt.toISOString(),

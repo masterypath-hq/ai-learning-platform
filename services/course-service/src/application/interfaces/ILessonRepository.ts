@@ -8,13 +8,6 @@ export interface LessonBundle {
   practiceExercises: PracticeExercise[];
 }
 
-/** Port: lesson persistence (includes worked examples + practice exercises). (SOLID: D, I.) */
 export interface ILessonRepository {
-  /** Saves lessons, their worked examples, and practice exercises in a single transaction. */
-  saveAll(
-    lessons: Lesson[],
-    workedExamples: WorkedExample[],
-    practiceExercises: PracticeExercise[]
-  ): Promise<void>;
   findByModuleId(moduleId: string): Promise<LessonBundle>;
 }
