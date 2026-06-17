@@ -3,67 +3,21 @@
  * Consumed by frontend and course service. No implementation details.
  */
 
-// ----- Enums -----
+// ----- Domain types -----
 
-export enum Subject {
-  FINANCE = "FINANCE",
-  PROGRAMMING = "PROGRAMMING",
-}
+export type PhaseLevel = "foundation" | "intermediate" | "advanced" | "mastery";
 
-export enum CourseLevel {
-  BEGINNER = "BEGINNER",
-  INTERMEDIATE = "INTERMEDIATE",
-  ADVANCED = "ADVANCED",
-  MASTERY = "MASTERY",
-}
+export type EnrollmentStatus = "active" | "paused" | "completed" | "dropped";
 
-export enum CourseStatus {
-  GENERATING = "GENERATING",
-  READY = "READY",
-  FAILED = "FAILED",
-}
-
-export enum FinanceTrack {
-  FOREX_TRADING = "FOREX_TRADING",
-  STOCK_MARKET = "STOCK_MARKET",
-  CRYPTO_BLOCKCHAIN = "CRYPTO_BLOCKCHAIN",
-  PERSONAL_FINANCE = "PERSONAL_FINANCE",
-  OPTIONS_DERIVATIVES = "OPTIONS_DERIVATIVES",
-}
-
-export enum ProgrammingTrack {
-  PYTHON = "PYTHON",
-  WEB_DEVELOPMENT = "WEB_DEVELOPMENT",
-  AI_MACHINE_LEARNING = "AI_MACHINE_LEARNING",
-  AI_ENGINEERING = "AI_ENGINEERING",
-  CYBERSECURITY = "CYBERSECURITY",
-  DATA_STRUCTURES_ALGORITHMS = "DATA_STRUCTURES_ALGORITHMS",
-}
-
-export type CourseTrack = FinanceTrack | ProgrammingTrack;
-
-// ----- Request DTOs -----
-
-export interface GenerateCourseRequest {
-  subject: Subject;
-  track: CourseTrack;
-  level: CourseLevel;
-  userBackground?: string;
-}
+export type TrackSlug =
+  | "backend"
+  | "frontend"
+  | "fullstack"
+  | "ai-engineering"
+  | "data-analysis"
+  | "cybersecurity";
 
 // ----- Response DTOs -----
-
-export interface GenerateCourseResponse {
-  courseId: string;
-  status: CourseStatus;
-}
-
-export interface CourseStatusResponse {
-  courseId: string;
-  status: CourseStatus;
-  title?: string;
-  errorMessage?: string;
-}
 
 export interface WorkedExampleResponse {
   id: string;
@@ -83,88 +37,95 @@ export interface PracticeExerciseResponse {
 
 export interface LessonResponse {
   id: string;
-  position: number;
+  slug: string;
   title: string;
-  explanationContent: string;
-  keyTakeaways: string[];
-  estimatedDurationMinutes: number;
+  contentUrl: string | null;
+  contentType: string;
+  durationMins: number | null;
+  orderIndex: number;
+  isPublished: boolean;
+  isProject: boolean;
   workedExamples: WorkedExampleResponse[];
   practiceExercise: PracticeExerciseResponse | null;
 }
 
 export interface ModuleResponse {
   id: string;
-  position: number;
-  theme: string;
-  keyConcepts: string[];
-  estimatedDurationMinutes: number;
+  phase: PhaseLevel;
+  title: string;
+  description: string | null;
+  orderIndex: number;
+  durationWeeks: number | null;
+  isPublished: boolean;
   lessons: LessonResponse[];
 }
 
 export interface CourseResponse {
   id: string;
-  userId: string;
-  subject: Subject;
-  track: CourseTrack;
-  level: CourseLevel;
+  slug: string;
   title: string;
-  description: string;
-  learningObjectives: string[];
-  prerequisites: string[];
-  estimatedDurationMinutes: number;
-  status: CourseStatus;
+  description: string | null;
+  primaryLanguage: string | null;
+  thumbnailUrl: string | null;
+  durationWeeks: number | null;
+  isPublished: boolean;
   modules: ModuleResponse[];
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CourseListItem {
+export interface TrackCourse {
   id: string;
-  subject: Subject;
-  track: CourseTrack;
-  level: CourseLevel;
+  slug: string;
   title: string;
-  description: string;
-  estimatedDurationMinutes: number;
-  status: CourseStatus;
+  description: string | null;
+  primaryLanguage: string | null;
+  thumbnailUrl: string | null;
+  durationWeeks: number | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ListCoursesResponse {
-  courses: CourseListItem[];
+export interface ListTrackCoursesResponse {
+  courses: TrackCourse[];
   total: number;
-  page: number;
-  limit: number;
 }
 
-// ----- Domain events (for choreography) -----
-
-export const COURSE_EVENTS = {
-  COURSE_GENERATION_STARTED: "course.generation.started.v1",
-  COURSE_READY: "course.ready.v1",
-  COURSE_GENERATION_FAILED: "course.generation.failed.v1",
-} as const;
-
-export interface CourseGenerationStartedPayload {
+export interface EnrolledCourse {
+  enrollmentId: string;
   courseId: string;
-  userId: string;
-  subject: Subject;
-  track: CourseTrack;
-  level: CourseLevel;
-  startedAt: string;
-}
-
-export interface CourseReadyPayload {
-  courseId: string;
-  userId: string;
+  slug: string;
   title: string;
-  readyAt: string;
+  description: string | null;
+  primaryLanguage: string | null;
+  thumbnailUrl: string | null;
+  durationWeeks: number | null;
+  status: EnrollmentStatus;
+  currentPhase: PhaseLevel;
+  enrolledAt: string;
+  completedAt: string | null;
 }
 
-export interface CourseGenerationFailedPayload {
-  courseId: string;
-  userId: string;
-  errorMessage: string;
-  failedAt: string;
+export interface ListEnrolledCoursesResponse {
+  courses: EnrolledCourse[];
+  total: number;
+}
+
+export interface ModuleListItem {
+  id: string;
+  phase: PhaseLevel;
+  title: string;
+  description: string | null;
+  orderIndex: number;
+  durationWeeks: number | null;
+  isPublished: boolean;
+}
+
+export interface CourseWithModules extends Omit<CourseResponse, "modules"> {
+  modules: ModuleListItem[];
+}
+
+export interface ListModulesResponse {
+  course: CourseWithModules;
+  total: number;
 }

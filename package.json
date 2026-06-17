@@ -13,6 +13,9 @@
     "dev:gateway": "npm run dev -w @ai-learning-platform/gateway",
     "dev:course": "npm run dev -w @ai-learning-platform/course-service",
     "migrate:auth": "npm run migrate:up -w @ai-learning-platform/auth-service",
+    "migrate:course": "npm run migrate:up -w @ai-learning-platform/course-service",
+    "migrate:all": "npm run migrate:auth && npm run migrate:course",
+    "seed:courses": "npm run seed:courses -w @ai-learning-platform/course-service",
     "lint:services": "eslint \"services/**/*.ts\" \"packages/**/*.ts\"",
     "typecheck:services": "npm run build -w @ai-learning-platform/shared && npm run build -w @ai-learning-platform/auth-service && npm run build -w @ai-learning-platform/gateway && npm run build -w @ai-learning-platform/course-service",
     "test:services": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --passWithNoTests"

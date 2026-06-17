@@ -1,0 +1,12 @@
+FROM node:24-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY packages ./packages
+COPY services/course-service ./services/course-service
+
+RUN npm ci
+RUN npm run build --workspace=@ai-learning-platform/shared
+
+CMD ["npx", "tsx", "watch", "services/course-service/src/index.ts"]

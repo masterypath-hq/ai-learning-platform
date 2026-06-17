@@ -1,4 +1,4 @@
-import type { Pool, PoolClient } from "pg";
+import type { Pool } from "pg";
 import { Lesson } from "../../domain/models/Lesson.js";
 import { WorkedExample } from "../../domain/models/WorkedExample.js";
 import { PracticeExercise } from "../../domain/models/PracticeExercise.js";
@@ -7,11 +7,15 @@ import type { ILessonRepository, LessonBundle } from "../../application/interfac
 type LessonRow = {
   id: string;
   module_id: string;
-  position: number;
+  slug: string;
   title: string;
-  explanation_content: string | null;
-  key_takeaways: string[] | null;
-  estimated_duration_minutes: number | null;
+  content_url: string | null;
+  content_type: string;
+  duration_mins: number | null;
+  order_index: number;
+  is_published: boolean;
+  is_project: boolean;
+  project_github_required: boolean;
   created_at: Date;
   updated_at: Date;
 };
@@ -39,93 +43,11 @@ type PracticeExerciseRow = {
 export class PgLessonRepository implements ILessonRepository {
   constructor(private readonly pool: Pool) {}
 
-  /** Saves lessons, worked examples, and practice exercises in a single transaction. */
-  async saveAll(
-    lessons: Lesson[],
-    workedExamples: WorkedExample[],
-    practiceExercises: PracticeExercise[]
-  ): Promise<void> {
-    if (lessons.length === 0) return;
-
-    const client: PoolClient = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-
-      // Insert lessons (multi-row)
-      const LESSON_FIELDS = 9;
-      const lessonPlaceholders = lessons
-        .map((_, i) => {
-          const b = i * LESSON_FIELDS;
-          return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9})`;
-        })
-        .join(", ");
-      const lessonValues = lessons.flatMap((l) => {
-        const p = l.toJSON();
-        return [p.id, p.moduleId, p.position, p.title, p.explanationContent, p.keyTakeaways, p.estimatedDurationMinutes, p.createdAt, p.updatedAt];
-      });
-      await client.query(
-        `INSERT INTO lessons
-           (id, module_id, position, title, explanation_content, key_takeaways, estimated_duration_minutes, created_at, updated_at)
-         VALUES ${lessonPlaceholders}
-         ON CONFLICT (module_id, position) DO NOTHING`,
-        lessonValues
-      );
-
-      // Insert worked examples (multi-row)
-      if (workedExamples.length > 0) {
-        const WE_FIELDS = 7;
-        const wePlaceholders = workedExamples
-          .map((_, i) => {
-            const b = i * WE_FIELDS;
-            return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7})`;
-          })
-          .join(", ");
-        const weValues = workedExamples.flatMap((we) => {
-          const p = we.toJSON();
-          return [p.id, p.lessonId, p.position, p.title, p.content, p.solution, p.createdAt];
-        });
-        await client.query(
-          `INSERT INTO worked_examples (id, lesson_id, position, title, content, solution, created_at)
-           VALUES ${wePlaceholders}
-           ON CONFLICT (lesson_id, position) DO NOTHING`,
-          weValues
-        );
-      }
-
-      // Insert practice exercises (multi-row)
-      if (practiceExercises.length > 0) {
-        const PE_FIELDS = 6;
-        const pePlaceholders = practiceExercises
-          .map((_, i) => {
-            const b = i * PE_FIELDS;
-            return `($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6})`;
-          })
-          .join(", ");
-        const peValues = practiceExercises.flatMap((pe) => {
-          const p = pe.toJSON();
-          return [p.id, p.lessonId, p.title, p.prompt, p.hints, p.sampleSolution];
-        });
-        await client.query(
-          `INSERT INTO practice_exercises (id, lesson_id, title, prompt, hints, sample_solution)
-           VALUES ${pePlaceholders}
-           ON CONFLICT (lesson_id) DO NOTHING`,
-          peValues
-        );
-      }
-
-      await client.query("COMMIT");
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
-    }
-  }
-
   async findByModuleId(moduleId: string): Promise<LessonBundle> {
     const lessonResult = await this.pool.query<LessonRow>(
-      `SELECT id, module_id, position, title, explanation_content, key_takeaways, estimated_duration_minutes, created_at, updated_at
-       FROM lessons WHERE module_id = $1 ORDER BY position ASC`,
+      `SELECT id, module_id, slug, title, content_url, content_type, duration_mins,
+              order_index, is_published, is_project, project_github_required, created_at, updated_at
+       FROM lessons WHERE module_id = $1 ORDER BY order_index ASC`,
       [moduleId]
     );
     const lessons = lessonResult.rows.map((r) => this.rowToLesson(r));
@@ -159,11 +81,15 @@ export class PgLessonRepository implements ILessonRepository {
     return Lesson.create({
       id: row.id,
       moduleId: row.module_id,
-      position: row.position,
+      slug: row.slug,
       title: row.title,
-      explanationContent: row.explanation_content ?? "",
-      keyTakeaways: row.key_takeaways ?? [],
-      estimatedDurationMinutes: row.estimated_duration_minutes ?? 0,
+      contentUrl: row.content_url,
+      contentType: row.content_type,
+      durationMins: row.duration_mins,
+      orderIndex: row.order_index,
+      isPublished: row.is_published,
+      isProject: row.is_project,
+      projectGithubRequired: row.project_github_required,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });
