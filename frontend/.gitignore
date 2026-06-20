@@ -1,4 +1,11 @@
-.next/
-out/
 node_modules/
-*.tsbuildinfo
+dist/
+build/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+coverage/
+.nyc_output/
+.turbo/

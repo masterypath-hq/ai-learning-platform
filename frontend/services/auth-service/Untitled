@@ -1,0 +1,18 @@
+# -----------------------------------------------------------------------------
+# Auth Service — copy to .env and fill in values
+# -----------------------------------------------------------------------------
+
+# Database (required for Supabase or remote Postgres)
+# Get from: Supabase → Project Settings → Database → Connection string (URI)
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.xmpmzovfqfsoyhlnzfqj.supabase.co:5432/postgres
+
+# JWT signing secret (required in production; use a long random string)
+# Dev default: "dev-secret-change-in-production"
+JWT_SECRET=al-learning-platform-secret
+
+# Base URL for password-reset links in emails (optional)
+# If unset, derived from request Host header (e.g. http://localhost:3000)
+RESET_LINK_BASE_URL=https://your-app.com
+
+# Port the service listens on (optional; default 3001)
+PORT=3001
