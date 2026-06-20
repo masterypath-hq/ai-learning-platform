@@ -1,0 +1,110 @@
+# Database: use Supabase (set DATABASE_URL) or local Postgres (--profile local).
+#   With Supabase:  docker compose up -d   (only auth-service; set DATABASE_URL in .env)
+#   Local Postgres: docker compose --profile local up -d
+
+services:
+  auth-db:
+    profiles:
+      - local
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: auth
+      POSTGRES_DB: auth
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+      - ./services/auth-service/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth -d auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      ENV_FILE_PATH: /app/.env
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./.env:/app/.env:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  course-db:
+    profiles:
+      - local
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: course
+      POSTGRES_PASSWORD: course
+      POSTGRES_DB: course
+    ports:
+      - "5434:5432"
+    volumes:
+      - course-db-data:/var/lib/postgresql/data
+      - ./services/course-service/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U course -d course"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  course-service:
+    build:
+      context: .
+      dockerfile: services/course-service/Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      ENV_FILE_PATH: /app/.env
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - ./.env:/app/.env:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_URL: redis://redis:6379
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      AI_SERVICE_URL: http://ai-service:5002
+      COURSE_SERVICE_URL: http://course-service:3003
+      PROGRESS_SERVICE_URL: http://progress-service:5004
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  auth-db-data:
+  course-db-data:
+  redis-data:

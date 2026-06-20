@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Template Options</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+      padding: 40px 24px 80px;
+      min-height: 100vh;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .page-header p {
+      font-size: 14px;
+      color: #888;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .template-wrapper {
+      cursor: pointer;
+      border-radius: 12px;
+      border: 2px solid transparent;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      background: #2a2a2a;
+    }
+    .template-wrapper:hover {
+      border-color: #21494A;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(33,73,74,0.3);
+    }
+    .template-wrapper.selected {
+      border-color: #1B3829;
+      box-shadow: 0 0 0 4px rgba(27,56,41,0.4);
+    }
+
+    .template-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      background: #2a2a2a;
+      border-bottom: 1px solid #333;
+    }
+    .badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #1B3829;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .template-wrapper.selected .badge {
+      background: #21494A;
+    }
+    .template-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e0e0e0;
+    }
+    .template-desc {
+      font-size: 11px;
+      color: #777;
+      margin-top: 2px;
+    }
+    .selected-tag {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 600;
+      color: #4ade80;
+      background: rgba(74,222,128,0.1);
+      padding: 3px 8px;
+      border-radius: 20px;
+      display: none;
+    }
+    .template-wrapper.selected .selected-tag {
+      display: block;
+    }
+
+    .email-frame {
+      width: 100%;
+      background: #f4f4f4;
+      padding: 16px;
+      min-height: 480px;
+    }
+
+    /* ---- EMAIL A: Minimal Light ---- */
+    .email-a {
+      width: 100%;
+      background: #EDE8DC;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 13px;
+      padding: 24px 16px;
+    }
+    .email-a .inner {
+      background: #FFFFFF;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #E2DDD4;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .email-a .top-bar {
+      background: #1B3829;
+      padding: 18px 28px;
+      text-align: center;
+    }
+    .email-a .logo {
+      color: #FFFFFF;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .email-a .body {
+      padding: 28px 28px 24px;
+    }
+    .email-a .greeting {
+      font-size: 18px;
+      font-weight: 700;
+      color: #111111;
+      margin-bottom: 10px;
+    }
+    .email-a .text {
+      color: #3B3B3B;
+      font-size: 13px;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .email-a .cta-wrap {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .email-a .cta {
+      display: inline-block;
+      background: #1B3829;
+      color: #FFFFFF;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 12px 28px;
+      border-radius: 4px;
+      text-decoration: none;
+      letter-spacing: 0.3px;
+    }
+    .email-a .divider {
+      height: 1px;
+      background: #E2DDD4;
+      margin: 0 0 16px;
+    }
+    .email-a .small-text {
+      font-size: 11px;
+      color: #8B8B8B;
+      line-height: 1.5;
+    }
+    .email-a .footer {
+      background: #EDE8DC;
+      padding: 14px 28px;
+      text-align: center;
+    }
+    .email-a .footer-text {
+      font-size: 10px;
+      color: #8B8B8B;
+    }
+
+    /* ---- EMAIL B: Dark Hero ---- */
+    .email-b {
+      width: 100%;
+      background: #FFFFFF;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 13px;
+      padding: 0;
+    }
+    .email-b .hero {
+      background: #1B3829;
+      padding: 32px 28px 28px;
+      text-align: center;
+    }
+    .email-b .logo-b {
+      color: #EDE8DC;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      opacity: 0.85;
+    }
+    .email-b .hero-title {
+      color: #FFFFFF;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+    .email-b .hero-sub {
+      color: #EDE8DC;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+    .email-b .body-b {
+      padding: 28px 28px 20px;
+    }
+    .email-b .track-pills {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .email-b .pill {
+      background: #EDE8DC;
+      color: #1B3829;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .email-b .text-b {
+      color: #3B3B3B;
+      font-size: 13px;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .email-b .cta-b {
+      display: block;
+      background: #21494A;
+      color: #FFFFFF;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 14px 28px;
+      border-radius: 4px;
+      text-decoration: none;
+      text-align: center;
+      margin-bottom: 16px;
+      letter-spacing: 0.3px;
+    }
+    .email-b .link-hint {
+      font-size: 10px;
+      color: #8B8B8B;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .email-b .footer-b {
+      border-top: 1px solid #E2DDD4;
+      padding: 14px 28px;
+      text-align: center;
+    }
+    .email-b .footer-text-b {
+      font-size: 10px;
+      color: #8B8B8B;
+    }
+
+    /* ---- EMAIL C: Warm Editorial ---- */
+    .email-c {
+      width: 100%;
+      background: #EDE8DC;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 13px;
+      padding: 20px 16px 24px;
+    }
+    .email-c .inner-c {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .email-c .top-accent {
+      height: 3px;
+      background: #21494A;
+      margin-bottom: 0;
+    }
+    .email-c .header-c {
+      background: #EDE8DC;
+      padding: 20px 28px 16px;
+      border: 1px solid #E2DDD4;
+      border-top: none;
+    }
+    .email-c .logo-c {
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #21494A;
+      margin-bottom: 0;
+    }
+    .email-c .body-c {
+      background: #FFFFFF;
+      border: 1px solid #E2DDD4;
+      border-top: none;
+      padding: 28px 28px 24px;
+    }
+    .email-c .eyebrow {
+      font-family: Arial, sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #21494A;
+      margin-bottom: 8px;
+    }
+    .email-c .headline-c {
+      font-size: 20px;
+      font-weight: 700;
+      color: #084243;
+      line-height: 1.3;
+      margin-bottom: 14px;
+    }
+    .email-c .text-c {
+      color: #3B3B3B;
+      font-family: Arial, sans-serif;
+      font-size: 12.5px;
+      line-height: 1.65;
+      margin-bottom: 22px;
+    }
+    .email-c .cta-c {
+      display: inline-block;
+      border: 2px solid #084243;
+      color: #084243;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 11px 26px;
+      text-decoration: none;
+      letter-spacing: 0.5px;
+      margin-bottom: 20px;
+    }
+    .email-c .quote-block {
+      border-left: 3px solid #21494A;
+      padding: 8px 0 8px 14px;
+      margin-bottom: 20px;
+    }
+    .email-c .quote-text {
+      font-size: 12px;
+      color: #6B7280;
+      font-style: italic;
+      line-height: 1.5;
+      font-family: Arial, sans-serif;
+    }
+    .email-c .footer-c {
+      background: #EDE8DC;
+      border: 1px solid #E2DDD4;
+      border-top: none;
+      padding: 14px 28px;
+      text-align: center;
+    }
+    .email-c .footer-text-c {
+      font-family: Arial, sans-serif;
+      font-size: 10px;
+      color: #8B8B8B;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>Sign-up Confirmation Email — Pick a Template</h1>
+    <p>Click a template to select it, then reply in the terminal with your choice</p>
+  </div>
+
+  <div class="grid">
+
+    <!-- TEMPLATE A -->
+    <div class="template-wrapper" data-choice="a" onclick="toggleSelect(this)">
+      <div class="template-header">
+        <div class="badge">A</div>
+        <div>
+          <div class="template-name">Minimal Light</div>
+          <div class="template-desc">Clean white card, dark green header bar</div>
+        </div>
+        <span class="selected-tag">✓ Selected</span>
+      </div>
+      <div class="email-frame">
+        <div class="email-a">
+          <div class="inner">
+            <div class="top-bar">
+              <div class="logo">MasteryPath</div>
+            </div>
+            <div class="body">
+              <div class="greeting">Confirm your email ✉️</div>
+              <p class="text">
+                Hey Alex, welcome to MasteryPath! You're one step away from
+                unlocking your personalized learning journey.
+                <br><br>
+                Click the button below to confirm your email address and
+                activate your account.
+              </p>
+              <div class="cta-wrap">
+                <a href="#" class="cta">Confirm My Email</a>
+              </div>
+              <div class="divider"></div>
+              <p class="small-text">
+                This link expires in 24 hours. If you didn't create an account,
+                you can safely ignore this email.
+              </p>
+            </div>
+            <div class="footer">
+              <div class="footer-text">
+                © 2026 MasteryPath · Unsubscribe · Privacy Policy
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEMPLATE B -->
+    <div class="template-wrapper" data-choice="b" onclick="toggleSelect(this)">
+      <div class="template-header">
+        <div class="badge">B</div>
+        <div>
+          <div class="template-name">Dark Hero</div>
+          <div class="template-desc">Full dark green hero, teal CTA, track pills</div>
+        </div>
+        <span class="selected-tag">✓ Selected</span>
+      </div>
+      <div class="email-frame" style="padding:0;">
+        <div class="email-b">
+          <div class="hero">
+            <div class="logo-b">MasteryPath</div>
+            <div class="hero-title">Welcome aboard, Alex.</div>
+            <div class="hero-sub">Your learning journey starts now.</div>
+          </div>
+          <div class="body-b">
+            <div class="track-pills">
+              <span class="pill">Python</span>
+              <span class="pill">AI Engineering</span>
+              <span class="pill">Forex</span>
+              <span class="pill">Stocks</span>
+            </div>
+            <p class="text-b">
+              You're joining a platform that adapts to <em>you</em> — AI-generated
+              curriculum, interactive sessions, and a tutor that tracks your progress
+              across every lesson.
+              <br><br>
+              First, confirm your email to unlock your account.
+            </p>
+            <a href="#" class="cta-b">Confirm Email Address →</a>
+            <p class="link-hint">Button not working? Copy this link into your browser</p>
+          </div>
+          <div class="footer-b">
+            <div class="footer-text-b">© 2026 MasteryPath · Unsubscribe · Privacy Policy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEMPLATE C -->
+    <div class="template-wrapper" data-choice="c" onclick="toggleSelect(this)">
+      <div class="template-header">
+        <div class="badge">C</div>
+        <div>
+          <div class="template-name">Warm Editorial</div>
+          <div class="template-desc">Cream background, teal accents, serif tone</div>
+        </div>
+        <span class="selected-tag">✓ Selected</span>
+      </div>
+      <div class="email-frame">
+        <div class="email-c">
+          <div class="inner-c">
+            <div class="top-accent"></div>
+            <div class="header-c">
+              <div class="logo-c">MasteryPath</div>
+            </div>
+            <div class="body-c">
+              <div class="eyebrow">Welcome</div>
+              <div class="headline-c">You're in. Now let's confirm your email.</div>
+              <p class="text-c">
+                Hi Alex — we're glad you're here. MasteryPath is built for people
+                who want to learn seriously: adaptive AI curriculum, real depth, and
+                a tutor that evolves with you.
+              </p>
+              <a href="#" class="cta-c">Confirm My Email Address</a>
+              <div class="quote-block">
+                <p class="quote-text">
+                  "The only way to learn is to start. Your first lesson is waiting."
+                </p>
+              </div>
+              <p class="text-c" style="font-size:11px; color:#8B8B8B; margin-bottom:0;">
+                This link expires in 24 hours. Didn't sign up? Ignore this email.
+              </p>
+            </div>
+            <div class="footer-c">
+              <div class="footer-text-c">© 2026 MasteryPath · Unsubscribe · Privacy Policy</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -1,25 +1,61 @@
 {
-  "name": "@ai-learning-platform/frontend",
+  "name": "ai-learning-platform",
   "private": true,
-  "version": "0.0.1",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "frontend"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096\" next dev",
     "start": "next start",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "type-check": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096\" tsc --noEmit",
+    "build": "npm run build --workspaces --if-present",
+    "dev:redis": "docker compose up redis -d",
+    "dev:auth": "npm run dev -w @ai-learning-platform/auth-service",
+    "dev:gateway": "npm run dev -w @ai-learning-platform/gateway",
+    "dev:course": "npm run dev -w @ai-learning-platform/course-service",
+    "migrate:auth": "npm run migrate:up -w @ai-learning-platform/auth-service",
+    "lint:services": "eslint \"services/**/*.ts\" \"packages/**/*.ts\"",
+    "typecheck:services": "npm run build -w @ai-learning-platform/shared && npm run build -w @ai-learning-platform/auth-service && npm run build -w @ai-learning-platform/gateway && npm run build -w @ai-learning-platform/course-service",
+    "test:services": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --passWithNoTests"
   },
+  "engines": {
+    "node": ">=24"
+  },
+  "overrides": {
+    "ioredis": "^5.4.1"
+  },
+
   "dependencies": {
-    "next": "^15.3.3",
+    "@hookform/resolvers": "^5.2.2",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.104.1",
+    "@tanstack/react-query": "^5.100.1",
+    "@tanstack/react-query-devtools": "^5.100.1",
+    "axios": "^1.17.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.9.0",
+    "next": "^15.3.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.73.1",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@types/node": "^22.15.21",
-    "@types/react": "^19.1.4",
-    "@types/react-dom": "^19.1.5",
-    "eslint": "^9.27.0",
-    "eslint-config-next": "^15.3.3",
-    "typescript": "^5.8.3"
+    "@eslint/eslintrc": "^3.3.5",
+    "@tailwindcss/postcss": "^4.1.4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.7",
+    "tailwindcss": "^4.1.4",
+    "typescript": "^5.7.3"
   }
 }
