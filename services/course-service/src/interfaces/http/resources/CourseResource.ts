@@ -28,6 +28,11 @@ export class CourseResource {
       "/api/v1/courses/:id/modules",
       this.wrapAsync((req, res) => this.controller.getModulesByCourse(req, res))
     );
+    this.app.post(
+      "/api/v1/courses/:id/enroll",
+      this.authMiddleware,
+      this.wrapAsync((req, res) => this.controller.enrollInCourse(req, res))
+    );
   }
 
   private wrapAsync(handler: AsyncHandler) {
