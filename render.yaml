@@ -1,0 +1,146 @@
+# Render Blueprint — Phase 1: Redis + auth-service + gateway
+# Phase 2/3 (course, ai) are commented at the bottom — uncomment when ready.
+#
+# Setup: Render Dashboard → New → Blueprint → connect repo.
+# If repo root is not this folder, set Root Directory → ai-learning-platform
+
+services:
+  # ── Redis (required for auth + gateway rate limits) ─────────────────────
+  - type: keyvalue
+    name: masterypath-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+  # ── Auth service ────────────────────────────────────────────────────────
+  - type: web
+    name: masterypath-auth
+    runtime: docker
+    dockerfilePath: ./services/auth-service/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "3001"
+      - key: NODE_ENV
+        value: production
+      - key: REDIS_URL
+        fromService:
+          name: masterypath-redis
+          type: keyvalue
+          property: connectionString
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_ADDRESS
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_REDIRECT_FRONTEND_URL
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_REDIRECT_URI
+        sync: false
+      - key: RESET_LINK_BASE_URL
+        fromService:
+          name: masterypath-gateway
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  # ── API gateway (public entry — clients call /api/auth/* here) ───────────
+  - type: web
+    name: masterypath-gateway
+    runtime: docker
+    dockerfilePath: ./services/gateway/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "4000"
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: masterypath-redis
+          type: keyvalue
+          property: connectionString
+      - key: AUTH_SERVICE_URL
+        fromService:
+          name: masterypath-auth
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: FRONTEND_URL
+        sync: false
+      - key: FRONTEND_RESET_PASSWORD_PATH
+        value: /reset-password
+
+# ── Phase 2 — Course service (uncomment when ready) ───────────────────────
+#  - type: web
+#    name: masterypath-course
+#    runtime: docker
+#    dockerfilePath: ./services/course-service/Dockerfile
+#    dockerContext: .
+#    plan: free
+#    healthCheckPath: /health
+#    envVars:
+#      - key: PORT
+#        value: "3003"
+#      - key: NODE_ENV
+#        value: production
+#      - key: DATABASE_URL
+#        sync: false
+#      - key: JWT_SECRET
+#        sync: false
+#      - key: ANTHROPIC_API_KEY
+#        sync: false
+#
+# Then add to masterypath-gateway envVars:
+#      - key: COURSE_SERVICE_URL
+#        fromService:
+#          name: masterypath-course
+#          type: web
+#          envVarKey: RENDER_EXTERNAL_URL
+
+# ── Phase 3 — AI tutor service (uncomment when ready) ─────────────────────
+#  - type: web
+#    name: masterypath-ai
+#    runtime: docker
+#    dockerfilePath: ./services/ai-service/Dockerfile
+#    dockerContext: .
+#    plan: free
+#    healthCheckPath: /health
+#    envVars:
+#      - key: PORT
+#        value: "5002"
+#      - key: NODE_ENV
+#        value: production
+#      - key: ANTHROPIC_API_KEY
+#        sync: false
+#      - key: COURSE_SERVICE_URL
+#        fromService:
+#          name: masterypath-course
+#          type: web
+#          envVarKey: RENDER_EXTERNAL_URL
+#
+# Then add to masterypath-gateway envVars:
+#      - key: AI_SERVICE_URL
+#        fromService:
+#          name: masterypath-ai
+#          type: web
+#          envVarKey: RENDER_EXTERNAL_URL
+#      - key: AI_PROXY_TIMEOUT_MS
+#        value: "120000"
