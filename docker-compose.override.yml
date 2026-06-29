@@ -5,3 +5,10 @@ services:
       dockerfile: services/auth-service/Dockerfile.dev
     volumes:
       - ./services/auth-service/src:/app/services/auth-service/src
+
+  course-service:
+    build:
+      context: .
+      dockerfile: services/course-service/Dockerfile.dev
+    volumes:
+      - ./services/course-service/src:/app/services/course-service/src

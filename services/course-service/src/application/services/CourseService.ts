@@ -1,57 +1,50 @@
-import type { IGenerateCourseAction } from "../interfaces/IGenerateCourseAction.js";
 import type { IGetCourseAction } from "../interfaces/IGetCourseAction.js";
-import type { IListUserCoursesAction } from "../interfaces/IListUserCoursesAction.js";
 import type { ICourseRepository } from "../interfaces/ICourseRepository.js";
+import type { IEnrollmentRepository } from "../interfaces/IEnrollmentRepository.js";
+import type { IModuleRepository } from "../interfaces/IModuleRepository.js";
 import type { ICourseService } from "../interfaces/ICourseService.js";
-import type {
-  GenerateCourseRequest,
-  GenerateCourseResponse,
-  CourseStatusResponse,
-  CourseResponse,
-  ListCoursesResponse,
-  Subject,
-  CourseStatus,
-} from "@ai-learning-platform/shared";
+import type { CourseResponse, ListTrackCoursesResponse, ListEnrolledCoursesResponse, ListModulesResponse } from "@ai-learning-platform/shared";
 
-/**
- * Application service: single entry for course operations. Delegates to actions.
- * (SOLID: D — depends on action interfaces only, not concretions.)
- */
 export class CourseService implements ICourseService {
   constructor(
-    private readonly generateCourseAction: IGenerateCourseAction,
     private readonly getCourseAction: IGetCourseAction,
-    private readonly listUserCoursesAction: IListUserCoursesAction,
-    private readonly courseRepo: ICourseRepository
+    private readonly courseRepo: ICourseRepository,
+    private readonly enrollmentRepo: IEnrollmentRepository,
+    private readonly moduleRepo: IModuleRepository
   ) {}
 
-  async generateCourse(userId: string, request: GenerateCourseRequest): Promise<GenerateCourseResponse> {
-    return this.generateCourseAction.execute(userId, request);
+  async getCourse(courseId: string): Promise<CourseResponse> {
+    return this.getCourseAction.execute(courseId);
   }
 
-  async getCourseStatus(courseId: string, userId: string): Promise<CourseStatusResponse> {
+  async listAllCourses(): Promise<ListTrackCoursesResponse> {
+    const courses = await this.courseRepo.findAllPublished();
+    return { courses, total: courses.length };
+  }
+
+  async listMyCourses(userId: string): Promise<ListEnrolledCoursesResponse> {
+    const courses = await this.enrollmentRepo.findByUserId(userId);
+    return { courses, total: courses.length };
+  }
+
+  async getModulesByCourseId(courseId: string): Promise<ListModulesResponse> {
     const course = await this.courseRepo.findById(courseId);
     if (!course) throw new Error("COURSE_NOT_FOUND");
-    if (course.userId !== userId) throw new Error("COURSE_FORBIDDEN");
+    const modules = await this.moduleRepo.findByCourseId(courseId);
     return {
-      courseId: course.id,
-      status: course.status,
-      title: course.title ?? undefined,
-      errorMessage: course.errorMessage ?? undefined,
+      course: {
+        ...course.toResponse(),
+        modules: modules.map((m) => ({
+          id: m.id,
+          phase: m.phase,
+          title: m.title,
+          description: m.description,
+          orderIndex: m.orderIndex,
+          durationWeeks: m.durationWeeks,
+          isPublished: m.isPublished,
+        })),
+      },
+      total: modules.length,
     };
-  }
-
-  async getCourse(courseId: string, userId: string): Promise<CourseResponse> {
-    return this.getCourseAction.execute(courseId, userId);
-  }
-
-  async listUserCourses(
-    userId: string,
-    subject?: Subject,
-    status?: CourseStatus,
-    page?: number,
-    limit?: number
-  ): Promise<ListCoursesResponse> {
-    return this.listUserCoursesAction.execute({ userId, subject, status, page, limit });
   }
 }

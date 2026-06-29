@@ -11,25 +11,22 @@ export class CourseResource {
   ) {}
 
   register(): void {
-    this.app.post(
-      "/api/v1/courses/generate",
-      this.authMiddleware,
-      this.wrapAsync((req, res) => this.controller.generate(req, res))
-    );
     this.app.get(
       "/api/v1/courses",
-      this.authMiddleware,
-      this.wrapAsync((req, res) => this.controller.listCourses(req, res))
+      this.wrapAsync((req, res) => this.controller.listAllCourses(req, res))
     );
     this.app.get(
-      "/api/v1/courses/:id/status",
+      "/api/v1/courses/me",
       this.authMiddleware,
-      this.wrapAsync((req, res) => this.controller.getCourseStatus(req, res))
+      this.wrapAsync((req, res) => this.controller.listMyCourses(req, res))
     );
     this.app.get(
       "/api/v1/courses/:id",
-      this.authMiddleware,
       this.wrapAsync((req, res) => this.controller.getCourse(req, res))
+    );
+    this.app.get(
+      "/api/v1/courses/:id/modules",
+      this.wrapAsync((req, res) => this.controller.getModulesByCourse(req, res))
     );
   }
 
