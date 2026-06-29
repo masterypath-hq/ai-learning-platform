@@ -122,6 +122,110 @@ docker compose up -d
 
 Docker Compose starts **Redis** automatically and sets `REDIS_URL=redis://redis:6379` on auth-service and gateway.
 
+## Deploy to Render (Phase 1)
+
+Phase 1 deploys **Redis + auth-service + gateway**. Course and AI tutor are Phase 2/3 (commented in [`render.yaml`](render.yaml)).
+
+```mermaid
+flowchart LR
+  Client --> Gateway[masterypath-gateway]
+  Gateway --> Auth[masterypath-auth]
+  Auth --> Redis[masterypath-redis]
+  Auth --> Supabase[(Supabase Postgres)]
+```
+
+### Before you deploy
+
+1. Push this repo to GitHub.
+2. Have ready (do not commit): `DATABASE_URL` (Supabase Session pooler), `JWT_SECRET`, `RESEND_API_KEY`, OAuth secrets.
+3. If your GitHub repo root is `mastery_path/`, set Render **Root Directory** → `ai-learning-platform`.
+
+### Step 1 — Run auth migrations
+
+```bash
+cd ai-learning-platform
+npm install
+npm run migrate:auth
+```
+
+Verify in Supabase: `pgmigrations` table exists.
+
+### Step 2 — Create services from Blueprint
+
+1. [dashboard.render.com](https://dashboard.render.com) → **New** → **Blueprint**.
+2. Connect GitHub and select the repo (set Root Directory if needed).
+3. Render reads [`render.yaml`](render.yaml) → **Apply** (creates Redis, auth, gateway).
+
+### Step 3 — Set secrets in Render Dashboard
+
+**masterypath-auth** (`sync: false` vars):
+
+| Variable | Value |
+|----------|--------|
+| `DATABASE_URL` | Supabase Session pooler URI |
+| `JWT_SECRET` | Same on auth and gateway |
+| `RESEND_API_KEY` | Resend API key |
+| `RESEND_FROM_ADDRESS` | Verified sender |
+| `GOOGLE_REDIRECT_URI` | `https://<gateway-host>/api/auth/google/callback` |
+| `GOOGLE_REDIRECT_FRONTEND_URL` | Frontend OAuth callback URL |
+| `GITHUB_REDIRECT_URI` | `https://<gateway-host>/api/auth/github/callback` |
+
+`REDIS_URL` and `RESET_LINK_BASE_URL` are wired automatically by the blueprint.
+
+**masterypath-gateway**:
+
+| Variable | Value |
+|----------|--------|
+| `JWT_SECRET` | Must match auth exactly |
+| `FRONTEND_URL` | Frontend origin (e.g. Vercel URL) |
+
+`AUTH_SERVICE_URL` and `REDIS_URL` are wired automatically.
+
+Save → **Manual Deploy** on auth, then gateway.
+
+### Step 4 — OAuth redirect URIs
+
+In Google Cloud Console / GitHub OAuth app, register:
+
+- `https://<gateway-host>/api/auth/google/callback`
+- `https://<gateway-host>/api/auth/github/callback`
+
+Use the **gateway** URL, not auth directly.
+
+### Step 5 — Verify
+
+```bash
+curl https://<gateway-host>/health
+# → {"status":"ok","service":"gateway"}
+
+curl -X POST https://<gateway-host>/api/auth/sign-up \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"SecurePass123!","name":"Test User"}'
+```
+
+Auth logs should show `Email queue ready (BullMQ)`.
+
+Postman: import [`services/auth-service/postman/AI-Learning-Platform-Auth-API.postman_collection.json`](services/auth-service/postman/AI-Learning-Platform-Auth-API.postman_collection.json), set `baseUrl` to your gateway URL.
+
+### Free tier notes
+
+- Web services spin down after ~15 min idle; first request may take 30–60s.
+- Upgrade to Starter for always-on production demos.
+
+### Phase 2 / 3 (later)
+
+Uncomment course and ai blocks in [`render.yaml`](render.yaml), add gateway env vars (`COURSE_SERVICE_URL`, `AI_SERVICE_URL`), set `ANTHROPIC_API_KEY`, redeploy.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| Auth crashes on start | Check Redis add-on; `REDIS_URL` must be set |
+| `Tenant or user not found` | Re-copy Supabase **Session** pooler URI |
+| Gateway 503 on `/api/auth/*` | Auth not deployed or `AUTH_SERVICE_URL` wrong |
+| OAuth redirect mismatch | Use gateway `/api/auth/.../callback` URLs |
+| JWT errors | `JWT_SECRET` must match on auth and gateway |
+
 ## CI/CD (GitHub Actions)
 
 ### Workflow
