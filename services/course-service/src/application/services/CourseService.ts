@@ -3,7 +3,14 @@ import type { ICourseRepository } from "../interfaces/ICourseRepository.js";
 import type { IEnrollmentRepository } from "../interfaces/IEnrollmentRepository.js";
 import type { IModuleRepository } from "../interfaces/IModuleRepository.js";
 import type { ICourseService } from "../interfaces/ICourseService.js";
-import type { CourseResponse, EnrolledCourse, ListTrackCoursesResponse, ListEnrolledCoursesResponse, ListModulesResponse } from "@ai-learning-platform/shared";
+import type {
+  CourseResponse,
+  EnrolledCourse,
+  ListTrackCoursesResponse,
+  ListEnrolledCoursesResponse,
+  ListModulesResponse,
+  ListTracksResponse,
+} from "@ai-learning-platform/shared";
 
 export class CourseService implements ICourseService {
   constructor(
@@ -48,9 +55,20 @@ export class CourseService implements ICourseService {
     };
   }
 
+  async listTracks(): Promise<ListTracksResponse> {
+    const tracks = await this.courseRepo.findAllGroupedByCategory();
+    return { tracks };
+  }
+
   async enrollCourse(courseId: string, userId: string): Promise<EnrolledCourse> {
     const course = await this.courseRepo.findById(courseId);
     if (!course) throw new Error("COURSE_NOT_FOUND");
     return this.enrollmentRepo.create(courseId, userId);
+  }
+
+  async chooseTrack(trackSlug: string, userId: string): Promise<EnrolledCourse> {
+    const course = await this.courseRepo.findBySlug(trackSlug);
+    if (!course) throw new Error("COURSE_NOT_FOUND");
+    return this.enrollmentRepo.create(course.id, userId);
   }
 }

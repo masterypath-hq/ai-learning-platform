@@ -33,6 +33,15 @@ export class CourseResource {
       this.authMiddleware,
       this.wrapAsync((req, res) => this.controller.enrollInCourse(req, res))
     );
+    this.app.get(
+      "/api/v1/tracks",
+      this.wrapAsync((req, res) => this.controller.listTracks(req, res))
+    );
+    this.app.post(
+      "/api/v1/choose-track",
+      this.authMiddleware,
+      this.wrapAsync((req, res) => this.controller.chooseTrack(req, res))
+    );
   }
 
   private wrapAsync(handler: AsyncHandler) {
