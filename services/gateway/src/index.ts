@@ -114,6 +114,21 @@ app.get(
   }),
 );
 
+app.get(
+  "/api/placement-question",
+  createServiceProxy({
+    target: { url: config.services.course.url, pathRewrite: { "^/api/placement-question": "/api/v1/placement-question" } },
+    timeoutMs: config.proxyTimeoutMs,
+  }),
+);
+app.get(
+  "/api/v1/placement-question",
+  createServiceProxy({
+    target: { url: config.services.course.url, pathRewrite: {} },
+    timeoutMs: config.proxyTimeoutMs,
+  }),
+);
+
 app.post(
   "/api/choose-track",
   verifyJwt,

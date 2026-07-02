@@ -4,6 +4,7 @@ import { PgCourseRepository } from "./infrastructure/persistence/PgCourseReposit
 import { PgModuleRepository } from "./infrastructure/persistence/PgModuleRepository.js";
 import { PgLessonRepository } from "./infrastructure/persistence/PgLessonRepository.js";
 import { PgEnrollmentRepository } from "./infrastructure/persistence/PgEnrollmentRepository.js";
+import { PgPlacementQuestionRepository } from "./infrastructure/persistence/PgPlacementQuestionRepository.js";
 import { GetCourseAction } from "./application/actions/GetCourseAction.js";
 import { CourseService } from "./application/services/CourseService.js";
 import { CourseController } from "./interfaces/http/controllers/CourseController.js";
@@ -101,9 +102,10 @@ export async function createCompositionRoot() {
   const moduleRepo = new PgModuleRepository(pool);
   const lessonRepo = new PgLessonRepository(pool);
   const enrollmentRepo = new PgEnrollmentRepository(pool);
+  const placementQuestionRepo = new PgPlacementQuestionRepository(pool);
 
   const getCourseAction = new GetCourseAction(courseRepo, moduleRepo, lessonRepo);
-  const courseService = new CourseService(getCourseAction, courseRepo, enrollmentRepo, moduleRepo);
+  const courseService = new CourseService(getCourseAction, courseRepo, enrollmentRepo, moduleRepo, placementQuestionRepo);
   const courseController = new CourseController(courseService);
   const jwtSecret = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
   const authMiddleware = createAuthMiddleware(jwtSecret);

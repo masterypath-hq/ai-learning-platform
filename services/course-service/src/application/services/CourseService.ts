@@ -2,6 +2,7 @@ import type { IGetCourseAction } from "../interfaces/IGetCourseAction.js";
 import type { ICourseRepository } from "../interfaces/ICourseRepository.js";
 import type { IEnrollmentRepository } from "../interfaces/IEnrollmentRepository.js";
 import type { IModuleRepository } from "../interfaces/IModuleRepository.js";
+import type { IPlacementQuestionRepository } from "../interfaces/IPlacementQuestionRepository.js";
 import type { ICourseService } from "../interfaces/ICourseService.js";
 import type {
   CourseResponse,
@@ -10,6 +11,8 @@ import type {
   ListEnrolledCoursesResponse,
   ListModulesResponse,
   ListTracksResponse,
+  PhaseLevel,
+  PlacementQuestionResponse,
 } from "@ai-learning-platform/shared";
 
 export class CourseService implements ICourseService {
@@ -17,7 +20,8 @@ export class CourseService implements ICourseService {
     private readonly getCourseAction: IGetCourseAction,
     private readonly courseRepo: ICourseRepository,
     private readonly enrollmentRepo: IEnrollmentRepository,
-    private readonly moduleRepo: IModuleRepository
+    private readonly moduleRepo: IModuleRepository,
+    private readonly placementQuestionRepo: IPlacementQuestionRepository
   ) {}
 
   async getCourse(courseId: string): Promise<CourseResponse> {
@@ -60,15 +64,26 @@ export class CourseService implements ICourseService {
     return { tracks };
   }
 
+  async getPlacementQuestion(trackSlug: string, level: PhaseLevel): Promise<PlacementQuestionResponse> {
+    const course = await this.courseRepo.findBySlug(trackSlug);
+    if (!course) throw new Error("COURSE_NOT_FOUND");
+    const question = await this.placementQuestionRepo.findByCourseAndLevel(course.id, level);
+    if (!question) throw new Error("QUESTION_NOT_FOUND");
+    return { id: question.id, question: question.question, options: question.options };
+  }
+
   async enrollCourse(courseId: string, userId: string): Promise<EnrolledCourse> {
     const course = await this.courseRepo.findById(courseId);
     if (!course) throw new Error("COURSE_NOT_FOUND");
-    return this.enrollmentRepo.create(courseId, userId);
+    return this.enrollmentRepo.create(courseId, userId, "foundation");
   }
 
-  async chooseTrack(trackSlug: string, userId: string): Promise<EnrolledCourse> {
+  async chooseTrack(trackSlug: string, userId: string, questionId: string, answer: string): Promise<EnrolledCourse> {
     const course = await this.courseRepo.findBySlug(trackSlug);
     if (!course) throw new Error("COURSE_NOT_FOUND");
-    return this.enrollmentRepo.create(course.id, userId);
+    const question = await this.placementQuestionRepo.findById(questionId);
+    if (!question) throw new Error("QUESTION_NOT_FOUND");
+    const phase = answer === question.correctOption ? question.phaseIfCorrect : question.phaseIfWrong;
+    return this.enrollmentRepo.create(course.id, userId, phase);
   }
 }

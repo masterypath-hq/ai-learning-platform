@@ -73,11 +73,11 @@ export class PgEnrollmentRepository implements IEnrollmentRepository {
     }));
   }
 
-  async create(courseId: string, userId: string): Promise<EnrolledCourse> {
+  async create(courseId: string, userId: string, phase: PhaseLevel): Promise<EnrolledCourse> {
     const result = await this.pool.query<EnrollmentInsertRow>(
       `WITH inserted AS (
          INSERT INTO enrollments (user_id, course_id, status, current_phase)
-         VALUES ($1, $2, 'active', 'foundation')
+         VALUES ($1, $2, 'active', $3)
          ON CONFLICT (user_id, course_id) DO NOTHING
          RETURNING id, status, current_phase, enrolled_at, completed_at, course_id
        )
@@ -96,7 +96,7 @@ export class PgEnrollmentRepository implements IEnrollmentRepository {
          c.duration_weeks
        FROM inserted i
        JOIN courses c ON c.id = i.course_id`,
-      [userId, courseId]
+      [userId, courseId, phase]
     );
 
     if (result.rowCount === 0) throw new Error("ALREADY_ENROLLED");

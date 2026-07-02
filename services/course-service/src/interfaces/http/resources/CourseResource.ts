@@ -37,6 +37,10 @@ export class CourseResource {
       "/api/v1/tracks",
       this.wrapAsync((req, res) => this.controller.listTracks(req, res))
     );
+    this.app.get(
+      "/api/v1/placement-question",
+      this.wrapAsync((req, res) => this.controller.getPlacementQuestion(req, res))
+    );
     this.app.post(
       "/api/v1/choose-track",
       this.authMiddleware,

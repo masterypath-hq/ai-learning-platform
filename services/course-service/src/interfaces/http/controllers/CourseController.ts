@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type { ICourseService } from "../../../application/interfaces/ICourseService.js";
 import type { AuthedRequest } from "../middleware/authMiddleware.js";
+import type { PhaseLevel } from "@ai-learning-platform/shared";
 
 const HTTP = {
   OK: 200,
@@ -13,7 +14,6 @@ export class CourseController {
   constructor(private readonly courseService: ICourseService) {}
 
   async listAllCourses(_req: Request, res: Response): Promise<void> {
-    console.log('hshfs');
     const result = await this.courseService.listAllCourses();
     res.status(HTTP.OK).json(result);
   }
@@ -76,15 +76,37 @@ export class CourseController {
     res.status(HTTP.OK).json(result);
   }
 
+  async getPlacementQuestion(req: Request, res: Response): Promise<void> {
+    const { trackSlug, level } = req.query as { trackSlug: string; level: PhaseLevel };
+    try {
+      const result = await this.courseService.getPlacementQuestion(trackSlug, level);
+      res.status(HTTP.OK).json(result);
+    } catch (e) {
+      if (e instanceof Error && e.message === "COURSE_NOT_FOUND") {
+        res.status(HTTP.NOT_FOUND).json({ error: "Track not found." });
+        return;
+      }
+      if (e instanceof Error && e.message === "QUESTION_NOT_FOUND") {
+        res.status(HTTP.NOT_FOUND).json({ error: "No placement question found for this track and level." });
+        return;
+      }
+      throw e;
+    }
+  }
+
   async chooseTrack(req: Request, res: Response): Promise<void> {
     const userId = (req as AuthedRequest).userId;
-    const { trackSlug } = req.body as { trackSlug: string };
+    const { trackSlug, questionId, answer } = req.body as { trackSlug: string; questionId: string; answer: string };
     try {
-      const result = await this.courseService.chooseTrack(trackSlug, userId);
+      const result = await this.courseService.chooseTrack(trackSlug, userId, questionId, answer);
       res.status(HTTP.CREATED).json(result);
     } catch (e) {
       if (e instanceof Error && e.message === "COURSE_NOT_FOUND") {
         res.status(HTTP.NOT_FOUND).json({ error: "Track not found." });
+        return;
+      }
+      if (e instanceof Error && e.message === "QUESTION_NOT_FOUND") {
+        res.status(HTTP.NOT_FOUND).json({ error: "Question not found." });
         return;
       }
       if (e instanceof Error && e.message === "ALREADY_ENROLLED") {
