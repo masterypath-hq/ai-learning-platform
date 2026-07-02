@@ -15,9 +15,13 @@ export type TrackSlug =
   | "fullstack"
   | "ai-engineering"
   | "data-analysis"
-  | "cybersecurity";
+  | "cybersecurity"
+  | "stock-trading"
+  | "forex-trading"
+  | "personal-finance"
+  | "crypto-defi"
+  | (string & {});
 
-// ----- Response DTOs -----
 
 export interface WorkedExampleResponse {
   id: string;
@@ -128,4 +132,13 @@ export interface CourseWithModules extends Omit<CourseResponse, "modules"> {
 export interface ListModulesResponse {
   course: CourseWithModules;
   total: number;
+}
+
+export interface TrackCategoryResponse {
+  category: string;
+  courses: TrackCourse[];
+}
+
+export interface ListTracksResponse {
+  tracks: TrackCategoryResponse[];
 }
