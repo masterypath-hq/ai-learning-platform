@@ -99,6 +99,38 @@ app.use(
   createServiceProxy({ target: config.services.ai, timeoutMs: config.proxyTimeoutMs }),
 );
 
+app.get(
+  "/api/tracks",
+  createServiceProxy({
+    target: { url: config.services.course.url, pathRewrite: { "^/api/tracks": "/api/v1/tracks" } },
+    timeoutMs: config.proxyTimeoutMs,
+  }),
+);
+app.get(
+  "/api/v1/tracks",
+  createServiceProxy({
+    target: { url: config.services.course.url, pathRewrite: {} },
+    timeoutMs: config.proxyTimeoutMs,
+  }),
+);
+
+app.post(
+  "/api/choose-track",
+  verifyJwt,
+  createServiceProxy({
+    target: { url: config.services.course.url, pathRewrite: { "^/api/choose-track": "/api/v1/choose-track" } },
+    timeoutMs: config.proxyTimeoutMs,
+  }),
+);
+app.post(
+  "/api/v1/choose-track",
+  verifyJwt,
+  createServiceProxy({
+    target: { url: config.services.course.url, pathRewrite: {} },
+    timeoutMs: config.proxyTimeoutMs,
+  }),
+);
+
 app.use(
   "/api/courses",
   verifyJwt,
