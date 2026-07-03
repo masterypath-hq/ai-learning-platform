@@ -142,3 +142,16 @@ export interface TrackCategoryResponse {
 export interface ListTracksResponse {
   tracks: TrackCategoryResponse[];
 }
+
+export interface PlacementQuestionOptions {
+  a: string;
+  b: string;
+  c: string;
+  d: string;
+}
+
+export interface PlacementQuestionResponse {
+  id: string;
+  question: string;
+  options: PlacementQuestionOptions;
+}
