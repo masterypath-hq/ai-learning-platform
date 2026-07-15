@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type { ICourseService } from "../../../application/interfaces/ICourseService.js";
 import type { AuthedRequest } from "../middleware/authMiddleware.js";
-import type { PhaseLevel } from "@ai-learning-platform/shared";
+import type { ConfidenceLevel, SelfAssessmentLevel } from "@ai-learning-platform/shared";
 
 const HTTP = {
   OK: 200,
@@ -76,33 +76,61 @@ export class CourseController {
     res.status(HTTP.OK).json(result);
   }
 
-  async getPlacementQuestion(req: Request, res: Response): Promise<void> {
-    const { trackSlug, level } = req.query as { trackSlug: string; level: PhaseLevel };
+  async listSkills(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
     try {
-      const result = await this.courseService.getPlacementQuestion(trackSlug, level);
-      res.status(HTTP.OK).json(result);
+      const result = await this.courseService.listSkills(id);
+      res.status(HTTP.OK).json({ skills: result });
     } catch (e) {
       if (e instanceof Error && e.message === "COURSE_NOT_FOUND") {
-        res.status(HTTP.NOT_FOUND).json({ error: "Track not found." });
-        return;
-      }
-      if (e instanceof Error && e.message === "QUESTION_NOT_FOUND") {
-        res.status(HTTP.NOT_FOUND).json({ error: "No placement question found for this track and level." });
+        res.status(HTTP.NOT_FOUND).json({ error: "Course not found." });
         return;
       }
       throw e;
     }
   }
 
-  async chooseTrack(req: Request, res: Response): Promise<void> {
-    const userId = (req as AuthedRequest).userId;
-    const { trackSlug, questionId, answer } = req.body as { trackSlug: string; questionId: string; answer: string };
+  async getPlacementQuestion(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const { selfAssessedLevel } = req.query as { selfAssessedLevel: SelfAssessmentLevel };
     try {
-      const result = await this.courseService.chooseTrack(trackSlug, userId, questionId, answer);
+      const result = await this.courseService.getPlacementQuestion(id, selfAssessedLevel);
+      res.status(HTTP.OK).json(result);
+    } catch (e) {
+      if (e instanceof Error && e.message === "COURSE_NOT_FOUND") {
+        res.status(HTTP.NOT_FOUND).json({ error: "Course not found." });
+        return;
+      }
+      if (e instanceof Error && e.message === "QUESTION_NOT_FOUND") {
+        res.status(HTTP.NOT_FOUND).json({ error: "No placement question found for this course and level." });
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async completeOnboarding(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const userId = (req as AuthedRequest).userId;
+    const { selfAssessedLevel, questionId, answer, confidenceRatings } = req.body as {
+      selfAssessedLevel: SelfAssessmentLevel;
+      questionId: string;
+      answer: string;
+      confidenceRatings: { skillId: string; level: ConfidenceLevel }[];
+    };
+    try {
+      const result = await this.courseService.completeOnboarding(
+        id,
+        userId,
+        selfAssessedLevel,
+        questionId,
+        answer,
+        confidenceRatings ?? []
+      );
       res.status(HTTP.CREATED).json(result);
     } catch (e) {
       if (e instanceof Error && e.message === "COURSE_NOT_FOUND") {
-        res.status(HTTP.NOT_FOUND).json({ error: "Track not found." });
+        res.status(HTTP.NOT_FOUND).json({ error: "Course not found." });
         return;
       }
       if (e instanceof Error && e.message === "QUESTION_NOT_FOUND") {
@@ -110,7 +138,7 @@ export class CourseController {
         return;
       }
       if (e instanceof Error && e.message === "ALREADY_ENROLLED") {
-        res.status(HTTP.CONFLICT).json({ error: "Already enrolled in this track." });
+        res.status(HTTP.CONFLICT).json({ error: "Already enrolled in this course." });
         return;
       }
       throw e;

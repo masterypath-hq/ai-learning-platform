@@ -9,6 +9,10 @@ export type PhaseLevel = "foundation" | "intermediate" | "advanced" | "mastery";
 
 export type EnrollmentStatus = "active" | "paused" | "completed" | "dropped";
 
+export type SelfAssessmentLevel = "complete_beginner" | "some_exposure" | "intermediate" | "advanced";
+
+export type ConfidenceLevel = "never_heard" | "seen_it" | "used_it" | "confident";
+
 export type TrackSlug =
   | "backend"
   | "frontend"
@@ -106,6 +110,8 @@ export interface EnrolledCourse {
   durationWeeks: number | null;
   status: EnrollmentStatus;
   currentPhase: PhaseLevel;
+  selfAssessedLevel: SelfAssessmentLevel | null;
+  selfAssessmentCompletedAt: string | null;
   enrolledAt: string;
   completedAt: string | null;
 }
@@ -134,8 +140,16 @@ export interface ListModulesResponse {
   total: number;
 }
 
+export interface CategoryResponse {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+  orderIndex: number;
+}
+
 export interface TrackCategoryResponse {
-  category: string;
+  category: CategoryResponse;
   courses: TrackCourse[];
 }
 
@@ -154,4 +168,20 @@ export interface PlacementQuestionResponse {
   id: string;
   question: string;
   options: PlacementQuestionOptions;
+  codeSnippet: string | null;
+  codeLanguage: string | null;
+}
+
+export interface SkillResponse {
+  id: string;
+  courseId: string;
+  name: string;
+  icon: string | null;
+  orderIndex: number;
+}
+
+export interface UserSkillConfidenceResponse {
+  skillId: string;
+  level: ConfidenceLevel;
+  ratedAt: string;
 }
