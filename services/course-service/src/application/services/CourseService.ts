@@ -3,6 +3,9 @@ import type { ICourseRepository } from "../interfaces/ICourseRepository.js";
 import type { IEnrollmentRepository } from "../interfaces/IEnrollmentRepository.js";
 import type { IModuleRepository } from "../interfaces/IModuleRepository.js";
 import type { IPlacementQuestionRepository } from "../interfaces/IPlacementQuestionRepository.js";
+import type { ISkillRepository } from "../interfaces/ISkillRepository.js";
+import type { IUserSkillConfidenceRepository, SkillConfidenceRating } from "../interfaces/IUserSkillConfidenceRepository.js";
+import type { IPlacementAnswerRepository } from "../interfaces/IPlacementAnswerRepository.js";
 import type { ICourseService } from "../interfaces/ICourseService.js";
 import type {
   CourseResponse,
@@ -13,7 +16,16 @@ import type {
   ListTracksResponse,
   PhaseLevel,
   PlacementQuestionResponse,
+  SelfAssessmentLevel,
+  SkillResponse,
 } from "@ai-learning-platform/shared";
+
+const SELF_ASSESSMENT_TO_PHASE: Record<SelfAssessmentLevel, PhaseLevel> = {
+  complete_beginner: "foundation",
+  some_exposure: "foundation",
+  intermediate: "intermediate",
+  advanced: "advanced",
+};
 
 export class CourseService implements ICourseService {
   constructor(
@@ -21,7 +33,10 @@ export class CourseService implements ICourseService {
     private readonly courseRepo: ICourseRepository,
     private readonly enrollmentRepo: IEnrollmentRepository,
     private readonly moduleRepo: IModuleRepository,
-    private readonly placementQuestionRepo: IPlacementQuestionRepository
+    private readonly placementQuestionRepo: IPlacementQuestionRepository,
+    private readonly skillRepo: ISkillRepository,
+    private readonly userSkillConfidenceRepo: IUserSkillConfidenceRepository,
+    private readonly placementAnswerRepo: IPlacementAnswerRepository
   ) {}
 
   async getCourse(courseId: string): Promise<CourseResponse> {
@@ -64,12 +79,25 @@ export class CourseService implements ICourseService {
     return { tracks };
   }
 
-  async getPlacementQuestion(trackSlug: string, level: PhaseLevel): Promise<PlacementQuestionResponse> {
-    const course = await this.courseRepo.findBySlug(trackSlug);
+  async listSkills(courseId: string): Promise<SkillResponse[]> {
+    const course = await this.courseRepo.findById(courseId);
     if (!course) throw new Error("COURSE_NOT_FOUND");
-    const question = await this.placementQuestionRepo.findByCourseAndLevel(course.id, level);
+    return this.skillRepo.findByCourseId(courseId);
+  }
+
+  async getPlacementQuestion(courseId: string, selfAssessedLevel: SelfAssessmentLevel): Promise<PlacementQuestionResponse> {
+    const course = await this.courseRepo.findById(courseId);
+    if (!course) throw new Error("COURSE_NOT_FOUND");
+    const phase = SELF_ASSESSMENT_TO_PHASE[selfAssessedLevel];
+    const question = await this.placementQuestionRepo.findByCourseAndLevel(course.id, phase);
     if (!question) throw new Error("QUESTION_NOT_FOUND");
-    return { id: question.id, question: question.question, options: question.options };
+    return {
+      id: question.id,
+      question: question.question,
+      options: question.options,
+      codeSnippet: question.codeSnippet,
+      codeLanguage: question.codeLanguage,
+    };
   }
 
   async enrollCourse(courseId: string, userId: string): Promise<EnrolledCourse> {
@@ -78,12 +106,29 @@ export class CourseService implements ICourseService {
     return this.enrollmentRepo.create(courseId, userId, "foundation");
   }
 
-  async chooseTrack(trackSlug: string, userId: string, questionId: string, answer: string): Promise<EnrolledCourse> {
-    const course = await this.courseRepo.findBySlug(trackSlug);
+  async completeOnboarding(
+    courseId: string,
+    userId: string,
+    selfAssessedLevel: SelfAssessmentLevel,
+    questionId: string,
+    answer: string,
+    confidenceRatings: SkillConfidenceRating[]
+  ): Promise<EnrolledCourse> {
+    const course = await this.courseRepo.findById(courseId);
     if (!course) throw new Error("COURSE_NOT_FOUND");
+
     const question = await this.placementQuestionRepo.findById(questionId);
     if (!question) throw new Error("QUESTION_NOT_FOUND");
-    const phase = answer === question.correctOption ? question.phaseIfCorrect : question.phaseIfWrong;
-    return this.enrollmentRepo.create(course.id, userId, phase);
+
+    const isCorrect = answer === question.correctOption;
+    const phase = isCorrect ? question.phaseIfCorrect : question.phaseIfWrong;
+
+    const enrollment = await this.enrollmentRepo.create(course.id, userId, phase, selfAssessedLevel);
+    await this.placementAnswerRepo.record(userId, questionId, answer, isCorrect);
+    if (confidenceRatings.length > 0) {
+      await this.userSkillConfidenceRepo.upsertMany(userId, confidenceRatings);
+    }
+
+    return enrollment;
   }
 }

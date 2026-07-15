@@ -9,10 +9,14 @@ type QuestionRow = {
   correct_option: string;
   phase_if_correct: string;
   phase_if_wrong: string;
+  code_snippet: string | null;
+  code_language: string | null;
+  skill_id: string | null;
 };
 
 const SELECT = `
-  SELECT id, question, options, correct_option, phase_if_correct, phase_if_wrong
+  SELECT id, question, options, correct_option, phase_if_correct, phase_if_wrong,
+         code_snippet, code_language, skill_id
   FROM placement_questions
 `;
 
@@ -24,6 +28,9 @@ function rowToQuestion(r: QuestionRow): PlacementQuestion {
     correctOption: r.correct_option,
     phaseIfCorrect: r.phase_if_correct as PhaseLevel,
     phaseIfWrong: r.phase_if_wrong as PhaseLevel,
+    codeSnippet: r.code_snippet,
+    codeLanguage: r.code_language,
+    skillId: r.skill_id,
   };
 }
 

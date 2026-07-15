@@ -38,13 +38,17 @@ export class CourseResource {
       this.wrapAsync((req, res) => this.controller.listTracks(req, res))
     );
     this.app.get(
-      "/api/v1/placement-question",
+      "/api/v1/courses/:id/skills",
+      this.wrapAsync((req, res) => this.controller.listSkills(req, res))
+    );
+    this.app.get(
+      "/api/v1/courses/:id/placement-question",
       this.wrapAsync((req, res) => this.controller.getPlacementQuestion(req, res))
     );
     this.app.post(
-      "/api/v1/choose-track",
+      "/api/v1/courses/:id/onboarding",
       this.authMiddleware,
-      this.wrapAsync((req, res) => this.controller.chooseTrack(req, res))
+      this.wrapAsync((req, res) => this.controller.completeOnboarding(req, res))
     );
   }
 

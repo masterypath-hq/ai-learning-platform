@@ -12,9 +12,16 @@ type CourseRow = {
   thumbnail_url: string | null;
   duration_weeks: number | null;
   is_published: boolean;
-  category: string | null;
   created_at: Date;
   updated_at: Date;
+};
+
+type CourseWithCategoryRow = CourseRow & {
+  category_id: string | null;
+  category_name: string | null;
+  category_slug: string | null;
+  category_icon: string | null;
+  category_order_index: number | null;
 };
 
 export class PgCourseRepository implements ICourseRepository {
@@ -41,15 +48,32 @@ export class PgCourseRepository implements ICourseRepository {
   }
 
   async findAllGroupedByCategory(): Promise<TrackCategoryResponse[]> {
-    const result = await this.pool.query<CourseRow>(
-      `SELECT id, slug, title, description, primary_language, thumbnail_url, duration_weeks, is_published, category, created_at, updated_at
-       FROM courses WHERE is_published = true ORDER BY category ASC, title ASC`
+    const result = await this.pool.query<CourseWithCategoryRow>(
+      `SELECT c.id, c.slug, c.title, c.description, c.primary_language, c.thumbnail_url, c.duration_weeks,
+              c.is_published, c.created_at, c.updated_at,
+              cat.id AS category_id, cat.name AS category_name, cat.slug AS category_slug,
+              cat.icon AS category_icon, cat.order_index AS category_order_index
+       FROM courses c
+       LEFT JOIN categories cat ON cat.id = c.category_id
+       WHERE c.is_published = true
+       ORDER BY cat.order_index ASC NULLS LAST, cat.name ASC NULLS LAST, c.title ASC`
     );
 
     const map = new Map<string, TrackCategoryResponse>();
     for (const r of result.rows) {
-      const key = r.category ?? "Uncategorised";
-      if (!map.has(key)) map.set(key, { category: key, courses: [] });
+      const key = r.category_id ?? "uncategorised";
+      if (!map.has(key)) {
+        map.set(key, {
+          category: {
+            id: r.category_id ?? "uncategorised",
+            name: r.category_name ?? "Uncategorised",
+            slug: r.category_slug ?? "uncategorised",
+            icon: r.category_icon,
+            orderIndex: r.category_order_index ?? 0,
+          },
+          courses: [],
+        });
+      }
       map.get(key)!.courses.push({
         id: r.id,
         slug: r.slug,

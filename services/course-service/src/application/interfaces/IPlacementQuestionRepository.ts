@@ -4,6 +4,7 @@ export interface PlacementQuestion extends PlacementQuestionResponse {
   correctOption: string;
   phaseIfCorrect: PhaseLevel;
   phaseIfWrong: PhaseLevel;
+  skillId: string | null;
 }
 
 export interface IPlacementQuestionRepository {

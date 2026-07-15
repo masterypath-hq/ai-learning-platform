@@ -5,6 +5,10 @@ import { PgModuleRepository } from "./infrastructure/persistence/PgModuleReposit
 import { PgLessonRepository } from "./infrastructure/persistence/PgLessonRepository.js";
 import { PgEnrollmentRepository } from "./infrastructure/persistence/PgEnrollmentRepository.js";
 import { PgPlacementQuestionRepository } from "./infrastructure/persistence/PgPlacementQuestionRepository.js";
+import { PgCategoryRepository } from "./infrastructure/persistence/PgCategoryRepository.js";
+import { PgSkillRepository } from "./infrastructure/persistence/PgSkillRepository.js";
+import { PgUserSkillConfidenceRepository } from "./infrastructure/persistence/PgUserSkillConfidenceRepository.js";
+import { PgPlacementAnswerRepository } from "./infrastructure/persistence/PgPlacementAnswerRepository.js";
 import { GetCourseAction } from "./application/actions/GetCourseAction.js";
 import { CourseService } from "./application/services/CourseService.js";
 import { CourseController } from "./interfaces/http/controllers/CourseController.js";
@@ -98,18 +102,35 @@ export async function createCompositionRoot() {
     pool = new pg.Pool(poolConfig);
   }
 
+  pool.on("error", (err) => {
+    console.error("[course-service] Idle pg client error (pool recovers automatically):", err.message);
+  });
+
   const courseRepo = new PgCourseRepository(pool);
   const moduleRepo = new PgModuleRepository(pool);
   const lessonRepo = new PgLessonRepository(pool);
   const enrollmentRepo = new PgEnrollmentRepository(pool);
   const placementQuestionRepo = new PgPlacementQuestionRepository(pool);
+  const categoryRepo = new PgCategoryRepository(pool);
+  const skillRepo = new PgSkillRepository(pool);
+  const userSkillConfidenceRepo = new PgUserSkillConfidenceRepository(pool);
+  const placementAnswerRepo = new PgPlacementAnswerRepository(pool);
 
   const getCourseAction = new GetCourseAction(courseRepo, moduleRepo, lessonRepo);
-  const courseService = new CourseService(getCourseAction, courseRepo, enrollmentRepo, moduleRepo, placementQuestionRepo);
+  const courseService = new CourseService(
+    getCourseAction,
+    courseRepo,
+    enrollmentRepo,
+    moduleRepo,
+    placementQuestionRepo,
+    skillRepo,
+    userSkillConfidenceRepo,
+    placementAnswerRepo
+  );
   const courseController = new CourseController(courseService);
   const jwtSecret = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
   const authMiddleware = createAuthMiddleware(jwtSecret);
   const app = new App(courseController, authMiddleware);
 
-  return { app, pool };
+  return { app, pool, categoryRepo, skillRepo, userSkillConfidenceRepo, placementAnswerRepo };
 }
