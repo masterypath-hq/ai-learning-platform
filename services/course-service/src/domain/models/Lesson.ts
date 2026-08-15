@@ -5,6 +5,8 @@ export interface LessonProps {
   title: string;
   contentUrl: string | null;
   contentType: string;
+  explanationContent: string | null;
+  keyTakeaways: string[];
   durationMins: number | null;
   orderIndex: number;
   isPublished: boolean;
@@ -27,6 +29,8 @@ export class Lesson {
   get title(): string { return this.props.title; }
   get contentUrl(): string | null { return this.props.contentUrl; }
   get contentType(): string { return this.props.contentType; }
+  get explanationContent(): string | null { return this.props.explanationContent; }
+  get keyTakeaways(): string[] { return this.props.keyTakeaways; }
   get durationMins(): number | null { return this.props.durationMins; }
   get orderIndex(): number { return this.props.orderIndex; }
   get isPublished(): boolean { return this.props.isPublished; }

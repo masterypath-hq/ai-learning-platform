@@ -1,14 +1,26 @@
 {
   "info": {
-    "name": "AI Learning Platform — Auth API",
-    "description": "All requests go through the **API gateway** (default `http://localhost:4000`). Paths use **`/api/auth/...`** (no `/v1`); the gateway rewrites to `/api/v1/auth/...` on the auth service.\n\n**Variables**\n- `baseUrl` — gateway URL (default `http://localhost:4000`)\n- `authServiceUrl` — optional; only if you bypass the gateway and call auth directly on port 3001\n- `accessToken` / `refreshToken` — set by Tests on **Sign in** / **Sign up** / **Refresh tokens**\n\n**Password reset emails:** Set `RESET_LINK_BASE_URL=http://localhost:4000` in `.env` so links look like `http://localhost:4000/reset-password?token=…`. The gateway **redirects** to `FRONTEND_URL/reset-password?token=…` (SPA). Your app then calls `POST /api/auth/reset-password` on the gateway.\n\n**Google OAuth:** Register the callback URL in Google Cloud Console (e.g. `http://localhost:4000/api/auth/google/callback` when using the gateway).",
+    "name": "AI Learning Platform \u2014 Auth API",
+    "description": "All requests go through the **API gateway** (default `http://localhost:4000`). Paths use **`/api/auth/...`** (no `/v1`); the gateway rewrites to `/api/v1/auth/...` on the auth service.\n\n**Variables**\n- `baseUrl` \u2014 gateway URL (default `http://localhost:4000`)\n- `authServiceUrl` \u2014 optional; only if you bypass the gateway and call auth directly on port 3001\n- `accessToken` / `refreshToken` \u2014 set by Tests on **Sign in** / **Sign up** / **Refresh tokens**\n\n**Password reset emails:** Set `RESET_LINK_BASE_URL=http://localhost:4000` in `.env` so links look like `http://localhost:4000/reset-password?token=\u2026`. The gateway **redirects** to `FRONTEND_URL/reset-password?token=\u2026` (SPA). Your app then calls `POST /api/auth/reset-password` on the gateway.\n\n**Google OAuth:** Register the callback URL in Google Cloud Console (e.g. `http://localhost:4000/api/auth/google/callback` when using the gateway).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:4000" },
-    { "key": "authServiceUrl", "value": "http://localhost:3001" },
-    { "key": "accessToken", "value": "" },
-    { "key": "refreshToken", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000"
+    },
+    {
+      "key": "authServiceUrl",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -40,14 +52,17 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"name\": \"Jane Doe\"\n}"
         },
         "url": "{{baseUrl}}/api/auth/sign-up",
-        "description": "`POST /api/auth/sign-up` → auth service `/api/v1/auth/sign-up`.\n\n**Success (200):** `userId`, `email`, `tokens` (access + refresh + expiries)."
+        "description": "`POST /api/auth/sign-up` \u2192 auth service `/api/v1/auth/sign-up`.\n\n**Success (200):** `userId`, `email`, `tokens` (access + refresh + expiries)."
       }
     },
     {
@@ -70,14 +85,17 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
         },
         "url": "{{baseUrl}}/api/auth/sign-in",
-        "description": "`POST /api/auth/sign-in` — public; no Bearer token."
+        "description": "`POST /api/auth/sign-in` \u2014 public; no Bearer token."
       }
     },
     {
@@ -100,14 +118,17 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
         },
         "url": "{{baseUrl}}/api/auth/refresh",
-        "description": "Public — no JWT. Body: `{ \"refreshToken\": \"...\" }`."
+        "description": "Public \u2014 no JWT. Body: `{ \"refreshToken\": \"...\" }`."
       }
     },
     {
@@ -115,14 +136,39 @@
       "request": {
         "method": "GET",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
         ],
         "url": "{{baseUrl}}/api/auth/me",
-        "description": "Protected — gateway validates JWT, then forwards to auth. Profile cached in Redis (15 min) in auth service."
+        "description": "Protected \u2014 gateway validates JWT, then forwards to auth. Profile cached in Redis (15 min) in auth service."
       }
     },
     {
-      "name": "Google Sign-In — Redirect",
+      "name": "Update me (profile)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Jane Q. Doe\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/me",
+        "description": "Protected \u2014 updates the display name and refreshes the Redis profile cache. Currently `name` is the only updatable field."
+      }
+    },
+    {
+      "name": "Google Sign-In \u2014 Redirect",
       "request": {
         "method": "GET",
         "header": [],
@@ -131,7 +177,7 @@
       }
     },
     {
-      "name": "Google Sign-In — Callback",
+      "name": "Google Sign-In \u2014 Callback",
       "request": {
         "method": "GET",
         "header": [],
@@ -144,14 +190,17 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"user@example.com\"\n}"
         },
         "url": "{{baseUrl}}/api/auth/forgot-password",
-        "description": "Public. Email link is built from `RESET_LINK_BASE_URL` + `/reset-password?token=…` (set base to `http://localhost:4000` so the link hits the gateway; gateway redirects to the frontend)."
+        "description": "Public. Email link is built from `RESET_LINK_BASE_URL` + `/reset-password?token=\u2026` (set base to `http://localhost:4000` so the link hits the gateway; gateway redirects to the frontend)."
       }
     },
     {
@@ -159,7 +208,10 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "body": {
           "mode": "raw",
@@ -170,13 +222,149 @@
       }
     },
     {
-      "name": "Optional — Auth service health (direct)",
+      "name": "Optional \u2014 Auth service health (direct)",
       "request": {
         "method": "GET",
         "header": [],
         "url": "{{authServiceUrl}}/health",
         "description": "Bypasses gateway. Use only for debugging; production clients should use the gateway only."
       }
+    },
+    {
+      "name": "Billing (Stripe + Paystack)",
+      "description": "Billing lives in auth-service, mounted at /api/v1/billing (proxied by the gateway, no path rewrite). Checkout/portal/cancel/status require a Bearer token (run Sign in first). Webhooks are public and unauthenticated \u2014 they verify the raw request body's signature instead.\n\nLocal webhook testing:\n- Stripe: `stripe listen --forward-to localhost:3001/api/v1/billing/webhooks/stripe` (use the CLI's printed `whsec_...` as STRIPE_WEBHOOK_SECRET), then `stripe trigger checkout.session.completed`.\n- Paystack (no local-forwarding CLI): sign a saved payload.json with `openssl dgst -sha512 -hmac \"$PAYSTACK_SECRET_KEY\" payload.json` and POST it with that hex digest as the `x-paystack-signature` header to localhost:3001/api/v1/billing/webhooks/paystack.\n- Idempotency check: replay the exact same signed payload twice \u2014 the second call should still return 200 but must not create a duplicate subscription row or double-apply the tier change.",
+      "item": [
+        {
+          "name": "Create checkout session (Stripe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"stripe\",\n  \"currency\": \"usd\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/billing/checkout-session",
+            "description": "Protected. Returns { success, data: { url }, error } \u2014 redirect the browser to `url`."
+          }
+        },
+        {
+          "name": "Create checkout session (Paystack)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"paystack\",\n  \"currency\": \"ngn\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/billing/checkout-session",
+            "description": "Protected. Returns { success, data: { url }, error } \u2014 redirect the browser to `url`."
+          }
+        },
+        {
+          "name": "Create portal session (Stripe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/billing/portal-session",
+            "description": "Protected. Only works for users on a Stripe subscription \u2014 422 PORTAL_NOT_SUPPORTED otherwise."
+          }
+        },
+        {
+          "name": "Cancel subscription (Paystack)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/billing/cancel",
+            "description": "Protected. Only works for users on a Paystack subscription \u2014 422 CANCEL_NOT_SUPPORTED_USE_PORTAL for Stripe users. Keeps Pro access until current_period_end."
+          }
+        },
+        {
+          "name": "Get subscription status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/billing/subscription",
+            "description": "Protected. Returns tier/provider/status/currentPeriodEnd/cancelling."
+          }
+        },
+        {
+          "name": "Webhook \u2014 Stripe (reference only, sign via Stripe CLI)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Stripe-Signature",
+                "value": "t=...,v1=..."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_...\",\n  \"type\": \"checkout.session.completed\",\n  \"data\": { \"object\": {} }\n}"
+            },
+            "url": "{{authServiceUrl}}/api/v1/billing/webhooks/stripe",
+            "description": "Public, unauthenticated \u2014 signature verified against the raw body. Sending this from Postman will fail signature verification (Postman re-serializes the body); use the Stripe CLI instead. Kept here for reference/documentation only."
+          }
+        },
+        {
+          "name": "Webhook \u2014 Paystack (reference only, sign with HMAC-SHA512)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-paystack-signature",
+                "value": "<hex hmac-sha512 of the raw body>"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"subscription.create\",\n  \"data\": {}\n}"
+            },
+            "url": "{{authServiceUrl}}/api/v1/billing/webhooks/paystack",
+            "description": "Public, unauthenticated \u2014 signature verified against the raw body. Sending this from Postman will fail signature verification (Postman re-serializes the body); use the curl/openssl recipe in the folder description instead. Kept here for reference/documentation only."
+          }
+        }
+      ]
     }
   ]
 }

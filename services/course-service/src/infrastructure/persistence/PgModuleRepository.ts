@@ -9,6 +9,7 @@ type ModuleRow = {
   phase: string;
   title: string;
   description: string | null;
+  key_concepts: string[] | null;
   order_index: number;
   duration_weeks: number | null;
   is_published: boolean;
@@ -21,11 +22,21 @@ export class PgModuleRepository implements IModuleRepository {
 
   async findByCourseId(courseId: string): Promise<Module[]> {
     const result = await this.pool.query<ModuleRow>(
-      `SELECT id, course_id, phase, title, description, order_index, duration_weeks, is_published, created_at, updated_at
+      `SELECT id, course_id, phase, title, description, key_concepts, order_index, duration_weeks, is_published, created_at, updated_at
        FROM modules WHERE course_id = $1 ORDER BY order_index ASC`,
       [courseId]
     );
     return result.rows.map((r) => this.rowToModule(r));
+  }
+
+  async findById(id: string): Promise<Module | null> {
+    const result = await this.pool.query<ModuleRow>(
+      `SELECT id, course_id, phase, title, description, key_concepts, order_index, duration_weeks, is_published, created_at, updated_at
+       FROM modules WHERE id = $1`,
+      [id]
+    );
+    if (result.rows.length === 0) return null;
+    return this.rowToModule(result.rows[0]);
   }
 
   private rowToModule(row: ModuleRow): Module {
@@ -35,6 +46,7 @@ export class PgModuleRepository implements IModuleRepository {
       phase: row.phase as PhaseLevel,
       title: row.title,
       description: row.description,
+      keyConcepts: row.key_concepts ?? [],
       orderIndex: row.order_index,
       durationWeeks: row.duration_weeks,
       isPublished: row.is_published,

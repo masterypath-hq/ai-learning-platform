@@ -1,0 +1,186 @@
+{
+  "info": {
+    "name": "AI Learning Platform — Assessment API",
+    "description": "All requests go through the **API gateway** (default `http://localhost:4000`). Paths use `/api/assessments/...`; the gateway strips that prefix and forwards to assessment-service.\n\n---\n\n## Collection variables\n| Variable | Default | Description |\n|---|---|---|\n| `baseUrl` | `http://localhost:4000` | Gateway URL — use this for all requests |\n| `assessmentServiceUrl` | `http://localhost:5005` | Direct assessment-service URL — bypass gateway (debug only) |\n| `accessToken` | _(empty)_ | Paste your JWT here after sign-in via the Auth collection |\n| `courseId` | _(empty)_ | An enrolled course id (see the Course API collection) |\n| `moduleId` | _(empty)_ | A module id from that course |\n| `attemptId` | _(empty)_ | Auto-set by the test script on Start Attempt |\n\n---\n\n## Flow\nKnowledge checks are ungraded and generated directly by ai-service (`POST /api/ai/quizzes/generate`) —\nsee the AI API collection. This collection covers **graded** quizzes only: module quizzes and course\nfinals. `POST /attempts` returns questions with the answer key withheld; `POST /attempts/:id/submit`\nreturns per-question feedback (including the correct answer) plus score and pass/fail.\n\nFail a module quiz and it's a 409 with `retryAvailableAt` for 24h; course finals cool down for 48h.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "assessmentServiceUrl", "value": "http://localhost:5005" },
+    { "key": "accessToken", "value": "" },
+    { "key": "courseId", "value": "" },
+    { "key": "moduleId", "value": "" },
+    { "key": "attemptId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Gateway health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health",
+            "description": "Returns `{ \"status\": \"ok\", \"service\": \"gateway\" }`.\nNo auth required."
+          }
+        },
+        {
+          "name": "Assessment service health (direct — debug only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{assessmentServiceUrl}}/health",
+            "description": "Bypasses the gateway. Use only for local debugging.\nProduction clients must always go through the gateway."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attempts",
+      "item": [
+        {
+          "name": "Start module_quiz attempt",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.data && j.data.id) pm.collectionVariables.set('attemptId', j.data.id);",
+                  "  console.log('attemptId:', j.data && j.data.id, 'questions:', j.data && j.data.questions && j.data.questions.length);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/assessments/attempts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"moduleId\": \"{{moduleId}}\",\n  \"type\": \"module_quiz\"\n}"
+            },
+            "description": "Generates (via ai-service, server-to-server) and persists a 10-15 question quiz, then returns it with the answer key withheld. If an in-progress attempt already exists for this module, that one is returned instead of generating a new one. Sets `attemptId` from the response."
+          }
+        },
+        {
+          "name": "Start course_final attempt",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/assessments/attempts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"type\": \"course_final\"\n}"
+            },
+            "description": "Same as module_quiz but scoped to the whole course (no moduleId) and with a 48h fail cool-down instead of 24h."
+          }
+        },
+        {
+          "name": "Submit attempt",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/assessments/attempts/{{attemptId}}/submit",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answers\": [\n    { \"questionId\": \"REPLACE-WITH-QUESTION-ID-FROM-START-RESPONSE\", \"answer\": \"your answer here\" }\n  ]\n}"
+            },
+            "description": "Grades MCQs locally, batches short_answer questions through ai-service's strict-rubric grader, and returns score/passed/feedback (feedback includes the correct answer per question). Passing a module_quiz publishes a `progress:module_completed` Redis event."
+          }
+        },
+        {
+          "name": "List attempts for a course",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/assessments/attempts?courseId={{courseId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assessments", "attempts"],
+              "query": [{ "key": "courseId", "value": "{{courseId}}" }]
+            },
+            "description": "History for the current user in this course, newest first."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Cases",
+      "item": [
+        {
+          "name": "Start attempt — no token (401)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/assessments/attempts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"moduleId\": \"{{moduleId}}\",\n  \"type\": \"module_quiz\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Start module_quiz — missing moduleId (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/assessments/attempts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"type\": \"module_quiz\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Submit — attempt already submitted (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/assessments/attempts/{{attemptId}}/submit",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answers\": [\n    { \"questionId\": \"q1\", \"answer\": \"anything\" }\n  ]\n}"
+            },
+            "description": "Run Submit attempt twice in a row with the same attemptId — the second call 409s."
+          }
+        },
+        {
+          "name": "Start attempt — cool-down active (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/assessments/attempts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"moduleId\": \"{{moduleId}}\",\n  \"type\": \"module_quiz\"\n}"
+            },
+            "description": "Fail a module_quiz (submit with all-wrong answers), then immediately call Start again for the same module — 409s with `error.retryAvailableAt` (24h out)."
+          }
+        }
+      ]
+    }
+  ]
+}

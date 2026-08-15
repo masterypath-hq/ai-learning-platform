@@ -65,6 +65,14 @@ export class User {
     return this.props.githubId;
   }
 
+  withName(name: string): User {
+    return User.create({ ...this.props, name });
+  }
+
+  withPlanTier(planTier: PlanTier): User {
+    return User.create({ ...this.props, planTier });
+  }
+
   toJSON(): UserProps {
     return { ...this.props };
   }

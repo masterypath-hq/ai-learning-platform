@@ -6,6 +6,7 @@ export interface ModuleProps {
   phase: PhaseLevel;
   title: string;
   description: string | null;
+  keyConcepts: string[];
   orderIndex: number;
   durationWeeks: number | null;
   isPublished: boolean;
@@ -25,6 +26,7 @@ export class Module {
   get phase(): PhaseLevel { return this.props.phase; }
   get title(): string { return this.props.title; }
   get description(): string | null { return this.props.description; }
+  get keyConcepts(): string[] { return this.props.keyConcepts; }
   get orderIndex(): number { return this.props.orderIndex; }
   get durationWeeks(): number | null { return this.props.durationWeeks; }
   get isPublished(): boolean { return this.props.isPublished; }

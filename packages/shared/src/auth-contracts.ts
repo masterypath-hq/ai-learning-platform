@@ -88,6 +88,19 @@ export interface RefreshTokensResponse {
   tokens: AuthTokens;
 }
 
+// ----- Waitlist (pre-launch Pro / Finance & Trading email capture) -----
+
+export interface JoinWaitlistRequest {
+  email: string;
+  /** Where the signup happened, e.g. "pro-pricing" | "finance-track" — for later segmentation. */
+  source?: string;
+}
+
+export interface JoinWaitlistResponse {
+  message: string;
+  alreadyJoined: boolean;
+}
+
 // ----- Domain events (for choreography) -----
 
 export const AUTH_EVENTS = {

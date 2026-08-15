@@ -1,0 +1,199 @@
+@import "tailwindcss";
+
+/* next-themes writes data-theme="light" | "dark" on <html> — key Tailwind's dark: variant off that instead of prefers-color-scheme. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-fraunces), "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-mono: var(--font-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Fallback values (pre-hydration / no JS) — overridden below per data-theme. */
+  --color-background: #f7f2e9;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f0eadd;
+  --color-surface-raised: #f2ecdf;
+  --color-border: #e8e0cf;
+  --color-border-strong: #d9cfb8;
+  --color-foreground: #1c1a16;
+  --color-muted: #6b6355;
+  --color-muted-2: #948c78;
+
+  --color-success: #0f8a5f;
+  --color-danger: #b3261e;
+  --color-warning: #b45309;
+}
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --color-background: #f7f2e9;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f0eadd;
+  --color-surface-raised: #f2ecdf;
+  --color-border: #e8e0cf;
+  --color-border-strong: #d9cfb8;
+  --color-foreground: #1c1a16;
+  --color-muted: #6b6355;
+  --color-muted-2: #948c78;
+
+  --color-success: #0f8a5f;
+  --color-danger: #b3261e;
+  --color-warning: #b45309;
+
+  --accent: #1b3a32;
+  --accent-hover: #24493f;
+  --accent-soft: rgba(27, 58, 50, 0.08);
+  --accent-foreground: #f7f2e9;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-background: #0e1512;
+  --color-surface: #161f1a;
+  --color-surface-hover: #1c2820;
+  --color-surface-raised: #19241e;
+  --color-border: #253830;
+  --color-border-strong: #33503f;
+  --color-foreground: #f2ecdd;
+  --color-muted: #a8a190;
+  --color-muted-2: #736c5c;
+
+  --color-success: #34d399;
+  --color-danger: #f87171;
+  --color-warning: #fbbf24;
+
+  --accent: #6fbf9a;
+  --accent-hover: #8ad1b2;
+  --accent-soft: rgba(111, 191, 154, 0.14);
+  --accent-foreground: #0e1512;
+}
+
+/* Subject accent — programming stays on-brand (forest green); finance gets a
+   contrasting warm gold so chat/course context is visually legible either way. */
+[data-theme="light"][data-subject="finance"] {
+  --accent: #92400e;
+  --accent-hover: #b45309;
+  --accent-soft: rgba(146, 64, 14, 0.08);
+}
+[data-theme="dark"][data-subject="finance"] {
+  --accent: #fbbf24;
+  --accent-hover: #fde68a;
+  --accent-soft: rgba(251, 191, 36, 0.14);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--color-foreground);
+}
+
+.font-display {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+}
+
+.prose-lesson {
+  color: var(--color-foreground);
+  line-height: 1.75;
+}
+.prose-lesson h1,
+.prose-lesson h2,
+.prose-lesson h3 {
+  font-weight: 600;
+  margin-top: 1.75em;
+  margin-bottom: 0.6em;
+}
+.prose-lesson p {
+  margin-top: 1em;
+  margin-bottom: 1em;
+  color: var(--color-muted);
+}
+.prose-lesson code {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+  font-size: 0.9em;
+}
+.prose-lesson pre {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1em;
+  overflow-x: auto;
+}
+.prose-lesson pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.prose-lesson ul,
+.prose-lesson ol {
+  margin: 1em 0;
+  padding-left: 1.5em;
+  color: var(--color-muted);
+}
+.prose-lesson a {
+  color: var(--accent);
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer-line {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+@keyframes count-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fill-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}

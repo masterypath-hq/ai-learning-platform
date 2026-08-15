@@ -1,10 +1,13 @@
 import type {
   CourseResponse,
   EnrolledCourse,
+  LessonWithContextResponse,
   ListTrackCoursesResponse,
   ListEnrolledCoursesResponse,
   ListModulesResponse,
   ListTracksResponse,
+  ModuleWithContextResponse,
+  PersistCourseContentRequest,
   PlacementQuestionResponse,
   SelfAssessmentLevel,
   SkillResponse,
@@ -28,4 +31,7 @@ export interface ICourseService {
     answer: string,
     confidenceRatings: SkillConfidenceRating[]
   ): Promise<EnrolledCourse>;
+  persistGeneratedContent(courseId: string, content: PersistCourseContentRequest): Promise<void>;
+  getLessonById(lessonId: string): Promise<LessonWithContextResponse>;
+  getModuleById(moduleId: string): Promise<ModuleWithContextResponse>;
 }

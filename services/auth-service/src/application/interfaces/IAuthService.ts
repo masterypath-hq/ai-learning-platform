@@ -24,5 +24,6 @@ export interface IAuthService {
   forgotPassword(email: string, resetLinkBaseUrl: string): Promise<ForgotPasswordResponse>;
   resetPassword(token: string, newPassword: string): Promise<ResetPasswordResponse>;
   getMe(userId: string): Promise<UserProfileResponse>;
+  updateMe(userId: string, updates: { name?: string }): Promise<UserProfileResponse>;
   refreshTokens(refreshToken: string): Promise<RefreshTokensResponse>;
 }

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type { IAuthService } from "../../../application/interfaces/IAuthService.js";
 import { SignUpRequest } from "../request/SignUpRequest.js";
+import { PatchMeRequest } from "../request/PatchMeRequest.js";
 import { SignInRequest } from "../request/SignInRequest.js";
 import { ForgotPasswordRequest } from "../request/ForgotPasswordRequest.js";
 import { ResetPasswordRequest } from "../request/ResetPasswordRequest.js";
@@ -219,6 +220,25 @@ export class AuthController {
     } catch (e) {
       if (e instanceof Error && e.message === "USER_NOT_FOUND") {
         res.status(HTTP.UNAUTHORIZED).json({ error: "User not found." });
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async updateMe(req: Request, res: Response): Promise<void> {
+    const parsed = PatchMeRequest.fromBody(req.body);
+    if (!parsed.ok) {
+      res.status(HTTP.BAD_REQUEST).json({ success: false, data: null, error: parsed.error });
+      return;
+    }
+    const userId = (req as AuthedRequest).auth.userId;
+    try {
+      const profile = await this.authService.updateMe(userId, { name: parsed.request.name });
+      res.status(HTTP.OK).json({ success: true, data: profile, error: null });
+    } catch (e) {
+      if (e instanceof Error && e.message === "USER_NOT_FOUND") {
+        res.status(HTTP.UNAUTHORIZED).json({ success: false, data: null, error: "User not found." });
         return;
       }
       throw e;

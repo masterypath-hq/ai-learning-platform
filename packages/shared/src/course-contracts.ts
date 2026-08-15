@@ -49,6 +49,8 @@ export interface LessonResponse {
   title: string;
   contentUrl: string | null;
   contentType: string;
+  explanationContent: string | null;
+  keyTakeaways: string[];
   durationMins: number | null;
   orderIndex: number;
   isPublished: boolean;
@@ -62,6 +64,7 @@ export interface ModuleResponse {
   phase: PhaseLevel;
   title: string;
   description: string | null;
+  keyConcepts: string[];
   orderIndex: number;
   durationWeeks: number | null;
   isPublished: boolean;
@@ -76,6 +79,8 @@ export interface CourseResponse {
   primaryLanguage: string | null;
   thumbnailUrl: string | null;
   durationWeeks: number | null;
+  learningObjectives: string[];
+  prerequisites: string[];
   isPublished: boolean;
   modules: ModuleResponse[];
   createdAt: string;
@@ -184,4 +189,17 @@ export interface UserSkillConfidenceResponse {
   skillId: string;
   level: ConfidenceLevel;
   ratedAt: string;
+}
+
+/** For quiz-generation grounding — a single lesson plus enough context to attribute it to a course. */
+export interface LessonWithContextResponse {
+  courseId: string;
+  moduleId: string;
+  lesson: LessonResponse;
+}
+
+/** For quiz-generation grounding — a single module (with its lessons) plus its course id. */
+export interface ModuleWithContextResponse {
+  courseId: string;
+  module: ModuleResponse;
 }

@@ -11,6 +11,8 @@ type CourseRow = {
   primary_language: string | null;
   thumbnail_url: string | null;
   duration_weeks: number | null;
+  learning_objectives: string[] | null;
+  prerequisites: string[] | null;
   is_published: boolean;
   created_at: Date;
   updated_at: Date;
@@ -29,7 +31,8 @@ export class PgCourseRepository implements ICourseRepository {
 
   async findById(id: string): Promise<Course | null> {
     const result = await this.pool.query<CourseRow>(
-      `SELECT id, slug, title, description, primary_language, thumbnail_url, duration_weeks, is_published, created_at, updated_at
+      `SELECT id, slug, title, description, primary_language, thumbnail_url, duration_weeks,
+              learning_objectives, prerequisites, is_published, created_at, updated_at
        FROM courses WHERE id = $1`,
       [id]
     );
@@ -39,7 +42,8 @@ export class PgCourseRepository implements ICourseRepository {
 
   async findBySlug(slug: string): Promise<Course | null> {
     const result = await this.pool.query<CourseRow>(
-      `SELECT id, slug, title, description, primary_language, thumbnail_url, duration_weeks, is_published, created_at, updated_at
+      `SELECT id, slug, title, description, primary_language, thumbnail_url, duration_weeks,
+              learning_objectives, prerequisites, is_published, created_at, updated_at
        FROM courses WHERE slug = $1`,
       [slug]
     );
@@ -117,6 +121,8 @@ export class PgCourseRepository implements ICourseRepository {
       primaryLanguage: row.primary_language,
       thumbnailUrl: row.thumbnail_url,
       durationWeeks: row.duration_weeks,
+      learningObjectives: row.learning_objectives ?? [],
+      prerequisites: row.prerequisites ?? [],
       isPublished: row.is_published,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

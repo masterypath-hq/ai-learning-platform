@@ -1,0 +1,14 @@
+FROM node:24-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY packages ./packages
+COPY frontend ./frontend
+
+RUN npm ci
+RUN npm run build --workspace=@ai-learning-platform/shared
+
+WORKDIR /app/frontend
+
+CMD ["npx", "next", "dev", "-H", "0.0.0.0"]

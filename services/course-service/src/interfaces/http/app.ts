@@ -6,11 +6,15 @@ import { CourseResource } from "./resources/CourseResource.js";
 export class App {
   private readonly express: express.Express;
 
-  constructor(courseController: CourseController, authMiddleware: RequestHandler) {
+  constructor(
+    courseController: CourseController,
+    authMiddleware: RequestHandler,
+    internalServiceMiddleware: RequestHandler
+  ) {
     this.express = express();
     this.express.use(express.json());
 
-    const courseResource = new CourseResource(this.express, courseController, authMiddleware);
+    const courseResource = new CourseResource(this.express, courseController, authMiddleware, internalServiceMiddleware);
     courseResource.register();
 
     this.express.get("/health", (_req, res) => {
