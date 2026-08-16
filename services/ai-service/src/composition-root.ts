@@ -18,7 +18,8 @@ import { GenerateCourseContentAction } from "./application/actions/GenerateCours
 import { GenerateQuizAction } from "./application/actions/GenerateQuizAction.js";
 import { GradeShortAnswersAction } from "./application/actions/GradeShortAnswersAction.js";
 import { createAuthMiddleware } from "./interfaces/http/middleware/authMiddleware.js";
-import { createInternalServiceMiddleware, createPgPool } from "@ai-learning-platform/shared";
+import { createInternalServiceMiddleware } from "@ai-learning-platform/shared";
+import { createPgPool } from "@ai-learning-platform/shared/pg-pool";
 import { ChatController } from "./interfaces/http/controllers/ChatController.js";
 import { CourseGenController } from "./interfaces/http/controllers/CourseGenController.js";
 import { QuizController } from "./interfaces/http/controllers/QuizController.js";
@@ -51,7 +52,11 @@ export async function createCompositionRoot() {
   const summaryGenerator = new ClaudeChatSummaryGenerator(anthropicClient);
   const streamPublisher = new RedisChatStreamPublisher(redis);
 
-  const createChatSessionAction = new CreateChatSessionAction(chatSessionRepo);
+  const internalServiceSecret = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret-change-in-production";
+  const courseServiceUrl = process.env.COURSE_SERVICE_URL ?? "http://course-service:3003";
+  const courseServiceClient = new CourseServiceClient(courseServiceUrl, internalServiceSecret);
+
+  const createChatSessionAction = new CreateChatSessionAction(chatSessionRepo, courseServiceClient);
   const sendChatMessageAction = new SendChatMessageAction(
     chatSessionRepo,
     chatMessageRepo,
@@ -82,11 +87,8 @@ export async function createCompositionRoot() {
   const courseContentGenerator = new ClaudeCourseContentGenerator(anthropicClient);
   const generateCourseContentAction = new GenerateCourseContentAction(courseContentGenerator);
   const courseGenController = new CourseGenController(generateCourseContentAction);
-  const internalServiceSecret = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret-change-in-production";
   const internalServiceMiddleware = createInternalServiceMiddleware(internalServiceSecret);
 
-  const courseServiceUrl = process.env.COURSE_SERVICE_URL ?? "http://course-service:3003";
-  const courseServiceClient = new CourseServiceClient(courseServiceUrl, internalServiceSecret);
   const quizGenerator = new ClaudeQuizGenerator(anthropicClient);
   const generateQuizAction = new GenerateQuizAction(quizGenerator, courseServiceClient);
   const gradeShortAnswersAction = new GradeShortAnswersAction(quizGenerator);

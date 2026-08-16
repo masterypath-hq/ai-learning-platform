@@ -26,7 +26,7 @@ export function useChatMessages(sessionId: string | undefined) {
 export function useCreateChatSession() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { subjectArea: ChatSubjectArea; track: string; topic?: string }) =>
+    mutationFn: (input: { subjectArea: ChatSubjectArea; track: string; topic?: string; learnerProfile?: string }) =>
       apiFetch<Envelope<ChatSession>>("/api/ai/chat/sessions", { method: "POST", body: input }).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });

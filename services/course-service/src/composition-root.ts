@@ -1,4 +1,5 @@
-import { createPgPool, createInternalServiceMiddleware } from "@ai-learning-platform/shared";
+import { createInternalServiceMiddleware } from "@ai-learning-platform/shared";
+import { createPgPool } from "@ai-learning-platform/shared/pg-pool";
 import { getRedisClient } from "./lib/redis.js";
 import { RedisProgressEventPublisher } from "./infrastructure/redis/RedisProgressEventPublisher.js";
 import { MarkLessonViewedAction } from "./application/actions/MarkLessonViewedAction.js";

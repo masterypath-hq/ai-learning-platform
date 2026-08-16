@@ -9,13 +9,14 @@ type ChatSessionRow = {
   subject_area: string;
   track: string;
   topic: string | null;
+  learner_profile: string | null;
   summary: string | null;
   suggested_next_questions: string[];
   created_at: Date;
   closed_at: Date | null;
 };
 
-const SELECT_COLUMNS = `id, user_id, subject_area, track, topic, summary, suggested_next_questions, created_at, closed_at`;
+const SELECT_COLUMNS = `id, user_id, subject_area, track, topic, learner_profile, summary, suggested_next_questions, created_at, closed_at`;
 
 export class PgChatSessionRepository implements IChatSessionRepository {
   constructor(private readonly pool: Pool) {}
@@ -25,12 +26,13 @@ export class PgChatSessionRepository implements IChatSessionRepository {
     subjectArea: ChatSubjectArea;
     track: string;
     topic: string | null;
+    learnerProfile: string | null;
   }): Promise<ChatSession> {
     const result = await this.pool.query<ChatSessionRow>(
-      `INSERT INTO chat_sessions (user_id, subject_area, track, topic)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO chat_sessions (user_id, subject_area, track, topic, learner_profile)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING ${SELECT_COLUMNS}`,
-      [params.userId, params.subjectArea, params.track, params.topic]
+      [params.userId, params.subjectArea, params.track, params.topic, params.learnerProfile]
     );
     return this.rowToChatSession(result.rows[0]);
   }
@@ -71,6 +73,7 @@ export class PgChatSessionRepository implements IChatSessionRepository {
       subjectArea: row.subject_area as ChatSubjectArea,
       track: row.track,
       topic: row.topic,
+      learnerProfile: row.learner_profile,
       summary: row.summary,
       suggestedNextQuestions: row.suggested_next_questions,
       createdAt: row.created_at,

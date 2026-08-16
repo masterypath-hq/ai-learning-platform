@@ -3,23 +3,22 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Clock, ChevronDown } from "lucide-react";
-import type { TrackCourse } from "@ai-learning-platform/shared";
-import { TRACK_METADATA, DEFAULT_TRACK_META, MASTERY_PHASES } from "@/lib/track-metadata";
+import type { DisplayTrack } from "@ai-learning-platform/shared";
+import { resolveTrackIcon, MASTERY_PHASES } from "@/lib/track-metadata";
 import { Card } from "./Card";
 
 export function ExpandableTrackCard({
-  course,
+  track,
   isExpanded,
   onHover,
   onToggle,
 }: {
-  course: TrackCourse;
+  track: DisplayTrack;
   isExpanded: boolean;
   onHover: () => void;
   onToggle: () => void;
 }) {
-  const meta = TRACK_METADATA[course.slug] ?? DEFAULT_TRACK_META;
-  const Icon = meta.icon;
+  const Icon = resolveTrackIcon(track.icon);
 
   return (
     <Card
@@ -33,12 +32,11 @@ export function ExpandableTrackCard({
             <Icon className="h-5 w-5 text-[var(--accent)]" />
           </div>
           <div>
-            <h3 className="font-medium">{course.title}</h3>
-            {course.durationWeeks ? (
-              <span className="flex items-center gap-1 text-xs text-muted-2">
-                <Clock className="h-3 w-3" />~{course.durationWeeks} weeks
-              </span>
-            ) : null}
+            <h3 className="font-medium">{track.name}</h3>
+            <span className="flex items-center gap-1 text-xs text-muted-2">
+              <Clock className="h-3 w-3" />
+              {track.estWeeksLabel}
+            </span>
           </div>
         </div>
         <ChevronDown className={`h-4 w-4 shrink-0 text-muted-2 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
@@ -51,18 +49,16 @@ export function ExpandableTrackCard({
         className="overflow-hidden"
       >
         <div className="flex flex-col gap-4 px-5 pb-5">
-          {course.description ? <p className="text-sm text-muted">{course.description}</p> : null}
+          <p className="text-sm text-muted">{track.outcomeLine}</p>
 
-          {meta.outcomes.length > 0 ? (
-            <ul className="flex flex-col gap-1.5 text-sm text-muted">
-              {meta.outcomes.map((o) => (
-                <li key={o} className="flex items-start gap-2">
-                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[var(--accent)]" />
-                  {o}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <ul className="flex flex-col gap-1.5 text-sm text-muted">
+            {track.bullets.map((b) => (
+              <li key={b} className="flex items-start gap-2">
+                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[var(--accent)]" />
+                {b}
+              </li>
+            ))}
+          </ul>
 
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-2">Your path</p>

@@ -70,6 +70,17 @@ export class SubmitQuizAttemptAction implements ISubmitQuizAttemptAction {
       });
     }
 
+    if (submitted.type === "course_final" && passed) {
+      await this.progressEventPublisher.publish({
+        userId,
+        courseId: submitted.courseId,
+        moduleId: null,
+        lessonId: null,
+        activityType: "course_completed",
+        occurredAt: new Date().toISOString(),
+      });
+    }
+
     return submitted;
   }
 }

@@ -14,6 +14,7 @@ function makeSession(overrides: Partial<Parameters<typeof ChatSession.create>[0]
     subjectArea: "programming",
     track: "cybersecurity",
     topic: null,
+    learnerProfile: null,
     summary: null,
     suggestedNextQuestions: [],
     createdAt: new Date(),

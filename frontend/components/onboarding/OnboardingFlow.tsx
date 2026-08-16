@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Code2, Banknote, Check } from "lucide-react";
-import type { ConfidenceLevel, SelfAssessmentLevel, TrackCourse } from "@ai-learning-platform/shared";
+import { Code2, Banknote, Check, Smartphone, Apple } from "lucide-react";
+import type { ConfidenceLevel, SelfAssessmentLevel, TrackCourse, DisplayTrack } from "@ai-learning-platform/shared";
+import { groupTracksForDisplay, TRACK_CATEGORY_ORDER, TRACK_CATEGORY_LABELS } from "@ai-learning-platform/shared";
 import { useTracks } from "@/lib/queries/tracks";
 import { usePlacementQuestion, useSkills, useCompleteOnboarding } from "@/lib/queries/courses";
 import { AuthShell } from "@/components/AuthShell";
@@ -40,9 +41,11 @@ export function OnboardingFlow({
   const [step, setStep] = useState<Step>(2);
   const [subject, setSubject] = useState<"programming" | "finance">("programming");
   const [course, setCourse] = useState<TrackCourse | null>(null);
+  const [choosingPlatform, setChoosingPlatform] = useState(false);
   const [selfAssessedLevel, setSelfAssessedLevel] = useState<SelfAssessmentLevel | null>(initialLevel ?? null);
   const [answer, setAnswer] = useState<string | null>(null);
   const [confidenceRatings, setConfidenceRatings] = useState<Record<string, ConfidenceLevel>>({});
+  const [goal, setGoal] = useState("");
 
   const { data: tracks, isLoading: tracksLoading } = useTracks();
 
@@ -60,6 +63,28 @@ export function OnboardingFlow({
   const completeOnboarding = useCompleteOnboarding();
 
   const courses = tracks?.tracks.flatMap((t) => t.courses) ?? [];
+  const liveSlugs = new Set(courses.map((c) => c.slug));
+  const displayTracks = groupTracksForDisplay().filter(
+    (t) => t.memberTrackIds?.some((id) => liveSlugs.has(id)) ?? liveSlugs.has(t.id)
+  );
+  const tracksByCategory = TRACK_CATEGORY_ORDER.map((category) => ({
+    category,
+    tracks: displayTracks.filter((t) => t.category === category),
+  })).filter((group) => group.tracks.length > 0);
+
+  function selectDisplayTrack(track: DisplayTrack) {
+    if (track.memberTrackIds) {
+      setChoosingPlatform(true);
+      return;
+    }
+    setChoosingPlatform(false);
+    setCourse(courses.find((c) => c.slug === track.id) ?? null);
+  }
+
+  function selectPlatform(slug: "mobile-android" | "mobile-ios") {
+    setChoosingPlatform(false);
+    setCourse(courses.find((c) => c.slug === slug) ?? null);
+  }
 
   async function handleFinish() {
     if (!course || !selfAssessedLevel || !answer || !placementQuestion) return;
@@ -69,6 +94,7 @@ export function OnboardingFlow({
       questionId: placementQuestion.id,
       answer,
       confidenceRatings: Object.entries(confidenceRatings).map(([skillId, level]) => ({ skillId, level })),
+      goal: goal.trim() || undefined,
     });
     onComplete(enrollment.courseId);
   }
@@ -111,30 +137,69 @@ export function OnboardingFlow({
             </div>
           ) : tracksLoading ? (
             <Loader />
+          ) : choosingPlatform ? (
+            <div className="flex flex-col gap-3">
+              <button onClick={() => setChoosingPlatform(false)} className="w-fit text-xs text-muted-2 hover:text-foreground">
+                ← Back to tracks
+              </button>
+              <p className="text-sm text-muted">
+                Android (Kotlin) or iOS (Swift)? Both go fully native, no cross-platform shortcuts — pick whichever matches
+                the phone you own and the jobs you&apos;re aiming for.
+              </p>
+              <button
+                onClick={() => selectPlatform("mobile-android")}
+                className="flex items-center gap-3 rounded-lg border border-border-strong px-4 py-3 text-left text-sm transition-colors hover:border-[var(--accent)]"
+              >
+                <Smartphone className="h-5 w-5 shrink-0 text-[var(--accent)]" />
+                <div>
+                  <p className="font-medium">Android — Kotlin + Jetpack Compose</p>
+                  <p className="mt-0.5 text-xs text-muted">Largest global device share; strong job market outside the US.</p>
+                </div>
+              </button>
+              <button
+                onClick={() => selectPlatform("mobile-ios")}
+                className="flex items-center gap-3 rounded-lg border border-border-strong px-4 py-3 text-left text-sm transition-colors hover:border-[var(--accent)]"
+              >
+                <Apple className="h-5 w-5 shrink-0 text-[var(--accent)]" />
+                <div>
+                  <p className="font-medium">iOS — Swift + SwiftUI</p>
+                  <p className="mt-0.5 text-xs text-muted">Higher average pay in US/EU markets; smaller device fragmentation.</p>
+                </div>
+              </button>
+            </div>
           ) : (
-            <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
-              {courses.map((c) => {
-                const selected = course?.id === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => setCourse(c)}
-                    className={`flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
-                      selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-border-strong hover:border-[var(--accent)]"
-                    }`}
-                  >
-                    <div>
-                      <p className="font-medium">{c.title}</p>
-                      {c.description ? <p className="mt-0.5 text-xs text-muted">{c.description}</p> : null}
-                    </div>
-                    {selected ? <Check className="h-4 w-4 shrink-0 text-[var(--accent)]" /> : null}
-                  </button>
-                );
-              })}
+            <div className="flex max-h-72 flex-col gap-4 overflow-y-auto">
+              {tracksByCategory.map((group) => (
+                <div key={group.category}>
+                  <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-2">
+                    {TRACK_CATEGORY_LABELS[group.category]}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {group.tracks.map((t) => {
+                      const selected = t.memberTrackIds ? !!course && t.memberTrackIds.includes(course.slug) : course?.slug === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => selectDisplayTrack(t)}
+                          className={`flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
+                            selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-border-strong hover:border-[var(--accent)]"
+                          }`}
+                        >
+                          <div>
+                            <p className="font-medium">{t.name}</p>
+                            <p className="mt-0.5 text-xs text-muted">{t.outcomeLine}</p>
+                          </div>
+                          {selected ? <Check className="h-4 w-4 shrink-0 text-[var(--accent)]" /> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
-          <Button disabled={subject !== "programming" || !course} onClick={() => setStep(3)}>
+          <Button disabled={subject !== "programming" || choosingPlatform || !course} onClick={() => setStep(3)}>
             Choose this track
           </Button>
         </div>
@@ -165,6 +230,20 @@ export function OnboardingFlow({
                 <span className="text-xs text-muted">{l.blurb}</span>
               </button>
             ))}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="onboarding-goal" className="text-sm font-medium">
+              What&apos;s your goal? <span className="font-normal text-muted-2">(optional)</span>
+            </label>
+            <input
+              id="onboarding-goal"
+              type="text"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value.slice(0, 280))}
+              placeholder="e.g. become a pentester, switch careers into backend"
+              className="rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--accent)]"
+            />
           </div>
 
           {selfAssessedLevel ? (

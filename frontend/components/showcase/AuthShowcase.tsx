@@ -12,8 +12,17 @@ import { NodeGraphPulse } from "./illustrations/NodeGraphPulse";
 const SLIDE_MS = 6000;
 /** Cycles per slide so the Ken Burns zoom doesn't feel mechanical. */
 const ZOOM_ORIGINS = ["50% 50%", "0% 0%", "100% 50%"];
+/** Above this many slides the carousel starts to drag — rotate a random subset per page load instead. */
+const MAX_SLIDES_PER_LOAD = 6;
+
+function pickRandomSlides(): typeof AUTH_SHOWCASE_SLIDES {
+  if (AUTH_SHOWCASE_SLIDES.length <= MAX_SLIDES_PER_LOAD) return AUTH_SHOWCASE_SLIDES;
+  const shuffled = [...AUTH_SHOWCASE_SLIDES].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, MAX_SLIDES_PER_LOAD);
+}
 
 export function AuthShowcase() {
+  const [slides] = useState(pickRandomSlides);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [tabHidden, setTabHidden] = useState(false);
@@ -28,11 +37,13 @@ export function AuthShowcase() {
 
   useEffect(() => {
     if (paused || tabHidden) return;
-    const id = setInterval(() => setIndex((i) => (i + 1) % AUTH_SHOWCASE_SLIDES.length), SLIDE_MS);
+    const id = setInterval(() => setIndex((i) => (i + 1) % slides.length), SLIDE_MS);
     return () => clearInterval(id);
+    // slides is fixed for the component's lifetime (chosen once via useState initializer).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paused, tabHidden]);
 
-  const active = AUTH_SHOWCASE_SLIDES[index];
+  const active = slides[index];
 
   return (
     <div
@@ -41,7 +52,7 @@ export function AuthShowcase() {
       onMouseLeave={() => setPaused(false)}
     >
       {/* Photos — all rendered up front (first eager, rest lazy) so crossfades never have to wait on a network fetch. */}
-      {AUTH_SHOWCASE_SLIDES.map((slide, i) => {
+      {slides.map((slide, i) => {
         const isActive = i === index;
         return (
           <div key={slide.image} className="absolute inset-0 transition-opacity duration-[900ms] ease-in-out motion-reduce:transition-none" style={{ opacity: isActive ? 1 : 0 }} aria-hidden={!isActive}>
@@ -95,7 +106,7 @@ export function AuthShowcase() {
 
       {/* Content overlay */}
       <div className="absolute inset-x-10 bottom-16 z-10">
-        {AUTH_SHOWCASE_SLIDES.map((slide, i) => (
+        {slides.map((slide, i) => (
           <div
             key={slide.image}
             className="absolute inset-x-0 bottom-0 transition-opacity duration-500 motion-reduce:transition-none"
@@ -114,11 +125,11 @@ export function AuthShowcase() {
 
       {/* Segmented progress bar */}
       <div className="absolute inset-x-10 bottom-6 z-10 flex gap-1.5">
-        {AUTH_SHOWCASE_SLIDES.map((_, i) => (
+        {slides.map((_, i) => (
           <button
             key={i}
             onClick={() => setIndex(i)}
-            aria-label={`Show slide ${i + 1} of ${AUTH_SHOWCASE_SLIDES.length}`}
+            aria-label={`Show slide ${i + 1} of ${slides.length}`}
             className="h-1 flex-1 overflow-hidden rounded-full bg-white/25"
           >
             {i === index ? (

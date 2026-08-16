@@ -1,4 +1,5 @@
-import { createPgPool, createInternalServiceMiddleware } from "@ai-learning-platform/shared";
+import { createInternalServiceMiddleware } from "@ai-learning-platform/shared";
+import { createPgPool } from "@ai-learning-platform/shared/pg-pool";
 import { PgQuizAttemptRepository } from "./infrastructure/persistence/PgQuizAttemptRepository.js";
 import { AiServiceClient } from "./infrastructure/http/AiServiceClient.js";
 import { RedisProgressEventPublisher } from "./infrastructure/redis/RedisProgressEventPublisher.js";

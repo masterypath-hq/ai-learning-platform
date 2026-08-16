@@ -7,6 +7,7 @@ export interface IChatSessionRepository {
     subjectArea: ChatSubjectArea;
     track: string;
     topic: string | null;
+    learnerProfile: string | null;
   }): Promise<ChatSession>;
   findById(id: string): Promise<ChatSession | null>;
   findByUserId(userId: string): Promise<ChatSession[]>;

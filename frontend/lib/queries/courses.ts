@@ -53,6 +53,7 @@ export function useCompleteOnboarding() {
       questionId: string;
       answer: string;
       confidenceRatings: { skillId: string; level: ConfidenceLevel }[];
+      goal?: string;
     }) =>
       apiFetch<EnrolledCourse>(`/api/courses/${input.courseId}/onboarding`, {
         method: "POST",
@@ -61,8 +62,21 @@ export function useCompleteOnboarding() {
           questionId: input.questionId,
           answer: input.answer,
           confidenceRatings: input.confidenceRatings,
+          goal: input.goal,
         },
       }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-courses"] });
+    },
+  });
+}
+
+/** Direct enroll, bypassing the onboarding wizard — used by the mobile second-platform accelerator. */
+export function useEnrollInCourse() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { courseId: string }) =>
+      apiFetch<EnrolledCourse>(`/api/courses/${input.courseId}/enroll`, { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-courses"] });
     },

@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Flame, Award, ArrowRight, BookOpen, CheckCircle2, CircleDot, Circle, Sparkles, Clock3 } from "lucide-react";
+import { Flame, Award, ArrowRight, BookOpen, CheckCircle2, CircleDot, Circle, Sparkles, Clock3, Rocket } from "lucide-react";
 import type { BadgeId, ProgressRecord } from "@ai-learning-platform/shared";
+import { findTrack } from "@ai-learning-platform/shared";
+import { useRouter } from "next/navigation";
 import { useDashboard, useCourseProgress } from "@/lib/queries/progress";
-import { useCourse } from "@/lib/queries/courses";
+import { useCourse, useEnrollInCourse } from "@/lib/queries/courses";
+import { useTracks } from "@/lib/queries/tracks";
+import { useCreateChatSession } from "@/lib/queries/chat";
 import { useAuthStore } from "@/lib/auth-store";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Badge";
@@ -24,8 +28,12 @@ const ACTIVITY_LABELS: Record<ProgressRecord["activityType"], string> = {
   lesson_viewed: "Viewed a lesson",
   knowledge_check_completed: "Completed a knowledge check",
   module_completed: "Passed a module quiz",
+  course_completed: "Completed a course",
   chat_session_closed: "Wrapped up an AI tutor session",
 };
+
+/** mobile-android/mobile-ios only — the language name for the accelerator's tutor learnerProfile hint. */
+const MOBILE_LANGUAGE: Record<string, string> = { "mobile-android": "Kotlin", "mobile-ios": "Swift" };
 
 type ModuleStatus = "done" | "in_progress" | "not_started";
 
@@ -40,8 +48,9 @@ function moduleStatus(lessonIds: string[], completedIds: Set<string>): ModuleSta
 export default function DashboardPage() {
   const name = useAuthStore((s) => s.name);
   const { data, isLoading } = useDashboard();
+  const nextAction = data?.recommendedNextAction ?? null;
 
-  const activeCourseId = data?.recommendedNextAction?.courseId ?? data?.courses[0]?.courseId;
+  const activeCourseId = (nextAction?.type === "continue" ? nextAction.courseId : undefined) ?? data?.courses[0]?.courseId;
   const { data: activeCourse } = useCourse(activeCourseId);
   const { data: activeCourseProgress } = useCourseProgress(activeCourseId);
 
@@ -81,13 +90,15 @@ export default function DashboardPage() {
               {firstName ? `Keep going, ${firstName}.` : "Keep going."}
             </h1>
             <p className="mt-1 text-sm text-white/70">You&apos;re building something real.</p>
-            {data.recommendedNextAction ? (
+            {nextAction?.type === "continue" ? (
               <Link
-                href={`/courses/${data.recommendedNextAction.courseId}/lessons/${data.recommendedNextAction.lessonId}`}
+                href={`/courses/${nextAction.courseId}/lessons/${nextAction.lessonId}`}
                 className="mt-5 inline-flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-[#0f2a22] transition-transform hover:scale-[1.02]"
               >
                 Continue learning <ArrowRight className="h-4 w-4" />
               </Link>
+            ) : nextAction?.type === "accelerator" ? (
+              <AcceleratorCta targetTrackSlug={nextAction.targetTrackSlug} label={nextAction.label} />
             ) : (
               <Link
                 href="/register?step=onboarding"
@@ -275,6 +286,41 @@ export default function DashboardPage() {
         </ScrollReveal>
       ) : null}
     </div>
+  );
+}
+
+function AcceleratorCta({ targetTrackSlug, label }: { targetTrackSlug: string; label: string }) {
+  const router = useRouter();
+  const { data: tracks } = useTracks();
+  const enrollInCourse = useEnrollInCourse();
+  const createChatSession = useCreateChatSession();
+
+  const targetCourse = tracks?.tracks.flatMap((t) => t.courses).find((c) => c.slug === targetTrackSlug);
+  const trackName = findTrack(targetTrackSlug)?.name ?? targetTrackSlug;
+  const language = MOBILE_LANGUAGE[targetTrackSlug] ?? "";
+
+  async function handleClick() {
+    if (!targetCourse) return;
+    await enrollInCourse.mutateAsync({ courseId: targetCourse.id });
+    await createChatSession.mutateAsync({
+      subjectArea: "programming",
+      track: targetTrackSlug,
+      learnerProfile: language ? `experienced mobile developer, new to ${language}` : undefined,
+    });
+    router.push(`/courses/${targetCourse.id}`);
+  }
+
+  const isPending = enrollInCourse.isPending || createChatSession.isPending;
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={!targetCourse || isPending}
+      className="mt-5 inline-flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-[#0f2a22] transition-transform hover:scale-[1.02] disabled:opacity-60"
+    >
+      <Rocket className="h-4 w-4" />
+      {isPending ? "Setting up…" : `${label}: ${trackName}`}
+    </button>
   );
 }
 

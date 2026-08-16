@@ -3,24 +3,47 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, CheckCircle2, Circle, Clock, ClipboardCheck } from "lucide-react";
-import { useCourse } from "@/lib/queries/courses";
+import { ChevronDown, CheckCircle2, Circle, Clock, ClipboardCheck, Sparkles } from "lucide-react";
+import type { ModuleResponse } from "@ai-learning-platform/shared";
+import { useCourse, useMyCourses, useMarkLessonViewed } from "@/lib/queries/courses";
 import { useCourseProgress } from "@/lib/queries/progress";
 import { useStartQuizAttempt, CooldownActiveError } from "@/lib/queries/quizzes";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Loader } from "@/components/Loader";
+import { KnowledgeCheck } from "@/components/KnowledgeCheck";
+
+/** True if every module key concept matches something the learner already rated confident/used_it on. */
+function likelyKnowsModule(mod: ModuleResponse, priorExperienceSkillNames: string[]): boolean {
+  if (mod.keyConcepts.length === 0 || priorExperienceSkillNames.length === 0) return false;
+  return mod.keyConcepts.every((concept) =>
+    priorExperienceSkillNames.some(
+      (skill) => concept.toLowerCase().includes(skill.toLowerCase()) || skill.toLowerCase().includes(concept.toLowerCase())
+    )
+  );
+}
 
 export default function CourseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { data: course, isLoading } = useCourse(id);
   const { data: progress } = useCourseProgress(id);
+  const { data: myCourses } = useMyCourses();
   const startAttempt = useStartQuizAttempt();
+  const markViewed = useMarkLessonViewed();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [quizError, setQuizError] = useState<string | null>(null);
+  const [skipChallengeModuleId, setSkipChallengeModuleId] = useState<string | null>(null);
+  const [skippedModuleIds, setSkippedModuleIds] = useState<Set<string>>(new Set());
 
   const completedIds = new Set(progress?.completedLessons.map((l) => l.id) ?? []);
+  const priorExperienceSkillNames = myCourses?.courses.find((c) => c.courseId === id)?.priorExperienceSkillNames ?? [];
+
+  async function handlePassedSkipChallenge(mod: ModuleResponse) {
+    setSkippedModuleIds((prev) => new Set(prev).add(mod.id));
+    setSkipChallengeModuleId(null);
+    await Promise.all(mod.lessons.map((lesson) => markViewed.mutateAsync({ courseId: id, lessonId: lesson.id })));
+  }
 
   async function handleStartModuleQuiz(moduleId: string) {
     setQuizError(null);
@@ -71,6 +94,8 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
       <div className="mt-6 flex flex-col gap-3">
         {course.modules.map((mod) => {
           const isOpen = expanded === mod.id;
+          const likelyKnown = likelyKnowsModule(mod, priorExperienceSkillNames) && !skippedModuleIds.has(mod.id);
+          const showingSkipChallenge = skipChallengeModuleId === mod.id;
           return (
             <Card key={mod.id} className="p-0">
               <button
@@ -78,7 +103,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
                 className="flex w-full items-center justify-between px-5 py-4 text-left"
               >
                 <div>
-                  <p className="font-medium">{mod.title}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{mod.title}</p>
+                    {likelyKnown ? (
+                      <span className="flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--accent)]">
+                        <Sparkles className="h-3 w-3" /> You likely know this
+                      </span>
+                    ) : null}
+                  </div>
                   {mod.description ? <p className="mt-0.5 text-sm text-muted">{mod.description}</p> : null}
                 </div>
                 <ChevronDown className={`h-4 w-4 shrink-0 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`} />
@@ -86,6 +118,34 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
 
               {isOpen ? (
                 <div className="border-t border-border px-5 py-4">
+                  {likelyKnown ? (
+                    <div className="mb-4 rounded-lg border border-dashed border-border-strong p-4">
+                      {showingSkipChallenge ? (
+                        <KnowledgeCheck
+                          courseId={id}
+                          moduleId={mod.id}
+                          lessonId={mod.lessons[0]?.id ?? ""}
+                          onPassed={() => handlePassedSkipChallenge(mod)}
+                        />
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm text-muted">
+                            Your onboarding ratings suggest you already know this — skim the lessons below, or take a
+                            quick challenge to skip ahead.
+                          </p>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="shrink-0"
+                            disabled={mod.lessons.length === 0}
+                            onClick={() => setSkipChallengeModuleId(mod.id)}
+                          >
+                            Take challenge
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                   <ul className="flex flex-col gap-1">
                     {mod.lessons.map((lesson) => {
                       const done = completedIds.has(lesson.id);

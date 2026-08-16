@@ -8,6 +8,8 @@ type EnrollmentRow = {
   current_phase: string;
   self_assessed_level: string | null;
   self_assessment_completed_at: Date | null;
+  goal: string | null;
+  prior_experience_skill_names: string[] | null;
   enrolled_at: Date;
   completed_at: Date | null;
   course_id: string;
@@ -21,6 +23,16 @@ type EnrollmentRow = {
 
 type EnrollmentInsertRow = EnrollmentRow;
 
+/** Skills the given user rated "used_it"/"confident" on, scoped to the given course. */
+const PRIOR_EXPERIENCE_SUBQUERY = `
+  COALESCE((
+    SELECT array_agg(s.name ORDER BY s.order_index)
+    FROM user_skill_confidence usc
+    JOIN skills s ON s.id = usc.skill_id
+    WHERE usc.user_id = $USER_ID AND s.course_id = $COURSE_ID AND usc.level IN ('used_it', 'confident')
+  ), ARRAY[]::text[])
+`;
+
 export class PgEnrollmentRepository implements IEnrollmentRepository {
   constructor(private readonly pool: Pool) {}
 
@@ -32,6 +44,8 @@ export class PgEnrollmentRepository implements IEnrollmentRepository {
          e.current_phase,
          e.self_assessed_level,
          e.self_assessment_completed_at,
+         e.goal,
+         ${PRIOR_EXPERIENCE_SUBQUERY.replaceAll("$USER_ID", "e.user_id").replaceAll("$COURSE_ID", "e.course_id")} AS prior_experience_skill_names,
          e.enrolled_at,
          e.completed_at,
          c.id            AS course_id,
@@ -55,14 +69,15 @@ export class PgEnrollmentRepository implements IEnrollmentRepository {
     courseId: string,
     userId: string,
     phase: PhaseLevel,
-    selfAssessedLevel?: SelfAssessmentLevel
+    selfAssessedLevel?: SelfAssessmentLevel,
+    goal?: string | null
   ): Promise<EnrolledCourse> {
     const result = await this.pool.query<EnrollmentInsertRow>(
       `WITH inserted AS (
-         INSERT INTO enrollments (user_id, course_id, status, current_phase, self_assessed_level, self_assessment_completed_at)
-         VALUES ($1, $2, 'active', $3, $4, CASE WHEN $4::self_assessment_level IS NULL THEN NULL ELSE NOW() END)
+         INSERT INTO enrollments (user_id, course_id, status, current_phase, self_assessed_level, self_assessment_completed_at, goal)
+         VALUES ($1, $2, 'active', $3, $4, CASE WHEN $4::self_assessment_level IS NULL THEN NULL ELSE NOW() END, $5)
          ON CONFLICT (user_id, course_id) DO NOTHING
-         RETURNING id, status, current_phase, self_assessed_level, self_assessment_completed_at, enrolled_at, completed_at, course_id
+         RETURNING id, status, current_phase, self_assessed_level, self_assessment_completed_at, goal, enrolled_at, completed_at, course_id
        )
        SELECT
          i.id            AS enrollment_id,
@@ -70,6 +85,8 @@ export class PgEnrollmentRepository implements IEnrollmentRepository {
          i.current_phase,
          i.self_assessed_level,
          i.self_assessment_completed_at,
+         i.goal,
+         ${PRIOR_EXPERIENCE_SUBQUERY.replaceAll("$USER_ID", "$1").replaceAll("$COURSE_ID", "$2")} AS prior_experience_skill_names,
          i.enrolled_at,
          i.completed_at,
          c.id            AS course_id,
@@ -81,7 +98,7 @@ export class PgEnrollmentRepository implements IEnrollmentRepository {
          c.duration_weeks
        FROM inserted i
        JOIN courses c ON c.id = i.course_id`,
-      [userId, courseId, phase, selfAssessedLevel ?? null]
+      [userId, courseId, phase, selfAssessedLevel ?? null, goal ?? null]
     );
 
     if (result.rowCount === 0) throw new Error("ALREADY_ENROLLED");
@@ -104,6 +121,8 @@ function rowToEnrolledCourse(r: EnrollmentRow): EnrolledCourse {
     currentPhase: r.current_phase as PhaseLevel,
     selfAssessedLevel: r.self_assessed_level as SelfAssessmentLevel | null,
     selfAssessmentCompletedAt: r.self_assessment_completed_at ? r.self_assessment_completed_at.toISOString() : null,
+    goal: r.goal,
+    priorExperienceSkillNames: r.prior_experience_skill_names ?? [],
     enrolledAt: r.enrolled_at.toISOString(),
     completedAt: r.completed_at ? r.completed_at.toISOString() : null,
   };

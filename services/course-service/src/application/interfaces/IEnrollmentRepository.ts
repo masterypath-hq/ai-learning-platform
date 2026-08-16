@@ -6,6 +6,7 @@ export interface IEnrollmentRepository {
     courseId: string,
     userId: string,
     phase: PhaseLevel,
-    selfAssessedLevel?: SelfAssessmentLevel
+    selfAssessedLevel?: SelfAssessmentLevel,
+    goal?: string | null
   ): Promise<EnrolledCourse>;
 }

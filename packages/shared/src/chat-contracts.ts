@@ -13,6 +13,12 @@ export const CreateChatSessionRequestSchema = z.object({
   subjectArea: ChatSubjectAreaSchema,
   track: z.string(),
   topic: z.string().optional(),
+  /**
+   * Optional freeform hint (e.g. "experienced mobile developer, new to Kotlin") used by the
+   * mobile second-platform accelerator so the tutor adapts immediately instead of waiting to
+   * infer level from the conversation. Not tracked as a strict enum — see tutor.ts.
+   */
+  learnerProfile: z.string().optional(),
 });
 export type CreateChatSessionRequest = z.infer<typeof CreateChatSessionRequestSchema>;
 
@@ -22,6 +28,7 @@ export const ChatSessionSchema = z.object({
   subjectArea: ChatSubjectAreaSchema,
   track: z.string(),
   topic: z.string().nullable(),
+  learnerProfile: z.string().nullable(),
   summary: z.string().nullable(),
   suggestedNextQuestions: z.array(z.string()),
   createdAt: z.string(),

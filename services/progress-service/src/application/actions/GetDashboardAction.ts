@@ -1,4 +1,5 @@
-import type { BadgeId, CourseProgressSummary, DashboardResponse, RecentQuizScore } from "@ai-learning-platform/shared";
+import type { BadgeId, CourseProgressSummary, DashboardResponse, EnrolledCourse, RecentQuizScore } from "@ai-learning-platform/shared";
+import { otherTrackIdsInGroup } from "@ai-learning-platform/shared";
 import type { IProgressRecordRepository } from "../interfaces/IProgressRecordRepository.js";
 import type { IStreakRepository } from "../interfaces/IStreakRepository.js";
 import type { ICourseServiceClient } from "../interfaces/ICourseServiceClient.js";
@@ -58,13 +59,19 @@ export class GetDashboardAction implements IGetDashboardAction {
     if (anyCourseComplete) badges.push("first_course_completed");
     if (hasQuizPass) badges.push("first_quiz_passed");
 
-    const recommendedNextAction = await this.buildRecommendedNextAction(userId);
+    const recommendedNextAction = await this.buildRecommendedNextAction(userId, enrolledCourses);
     const recentActivity = await this.progressRecordRepo.findRecent(userId, RECENT_ACTIVITY_LIMIT);
 
     return { courses, streak, recentQuizScores, badges, recommendedNextAction, recentActivity };
   }
 
-  private async buildRecommendedNextAction(userId: string): Promise<DashboardResponse["recommendedNextAction"]> {
+  private async buildRecommendedNextAction(
+    userId: string,
+    enrolledCourses: EnrolledCourse[]
+  ): Promise<DashboardResponse["recommendedNextAction"]> {
+    const accelerator = await this.buildAcceleratorRecommendation(userId, enrolledCourses);
+    if (accelerator) return accelerator;
+
     const courseId = await this.progressRecordRepo.findMostRecentCourseId(userId);
     if (!courseId) return null;
 
@@ -76,9 +83,35 @@ export class GetDashboardAction implements IGetDashboardAction {
       const lessons = [...mod.lessons].sort((a, b) => a.orderIndex - b.orderIndex);
       for (const lesson of lessons) {
         if (!viewedLessonIds.has(lesson.id)) {
-          return { courseId, lessonId: lesson.id, label: `Continue: ${lesson.title}` };
+          return { type: "continue", courseId, lessonId: lesson.id, label: `Continue: ${lesson.title}` };
         }
       }
+    }
+    return null;
+  }
+
+  /**
+   * After a learner completes one track in a displayGroup (e.g. mobile-android), and hasn't
+   * started the other member (e.g. mobile-ios), offer the accelerated second-platform path.
+   */
+  private async buildAcceleratorRecommendation(
+    userId: string,
+    enrolledCourses: EnrolledCourse[]
+  ): Promise<DashboardResponse["recommendedNextAction"]> {
+    const enrolledSlugs = new Set(enrolledCourses.map((c) => c.slug));
+
+    for (const enrolled of enrolledCourses) {
+      const otherSlugs = otherTrackIdsInGroup(enrolled.slug).filter((slug) => !enrolledSlugs.has(slug));
+      if (otherSlugs.length === 0) continue;
+
+      const completed = await this.progressRecordRepo.hasCourseActivityType(userId, enrolled.courseId, "course_completed");
+      if (!completed) continue;
+
+      return {
+        type: "accelerator",
+        targetTrackSlug: otherSlugs[0],
+        label: "Master the other platform — accelerated path",
+      };
     }
     return null;
   }

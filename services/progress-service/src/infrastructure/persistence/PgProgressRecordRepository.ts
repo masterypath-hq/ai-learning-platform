@@ -63,6 +63,14 @@ export class PgProgressRecordRepository implements IProgressRecordRepository {
     return (result.rowCount ?? 0) > 0;
   }
 
+  async hasCourseActivityType(userId: string, courseId: string, activityType: ProgressActivityType): Promise<boolean> {
+    const result = await this.pool.query(
+      `SELECT 1 FROM progress_records WHERE user_id = $1 AND course_id = $2 AND activity_type = $3 LIMIT 1`,
+      [userId, courseId, activityType]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async findMostRecentCourseId(userId: string): Promise<string | null> {
     const result = await this.pool.query<{ course_id: string | null }>(
       `SELECT course_id FROM progress_records

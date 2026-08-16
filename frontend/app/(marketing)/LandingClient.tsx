@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Bot, Hammer, ClipboardCheck, TrendingUp, Mail, Check } from "lucide-react";
+import { groupTracksForDisplay, TRACK_CATEGORY_ORDER, TRACK_CATEGORY_LABELS } from "@ai-learning-platform/shared";
 import type { LessonResponse } from "@ai-learning-platform/shared";
 import { useTracks } from "@/lib/queries/tracks";
 import { MASTERY_PHASES } from "@/lib/track-metadata";
@@ -45,7 +46,7 @@ const VALUE_PROPS = [
 const STEPS = [
   {
     title: "Pick your track",
-    body: "Six live tracks across programming & AI engineering today, with Finance & Trading coming next.",
+    body: "Live tracks across software engineering, data, cloud, ops, and fully native mobile — with Finance & Trading coming next.",
   },
   {
     title: "Get placed, not guessed",
@@ -66,6 +67,16 @@ export function LandingClient({ lessonPreview }: { lessonPreview: LessonResponse
   const courses = data?.tracks.flatMap((t) => t.courses) ?? [];
   const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const [heroTrackIndex, setHeroTrackIndex] = useState(0);
+
+  const liveSlugs = new Set(courses.map((c) => c.slug));
+  const allDisplayTracks = groupTracksForDisplay();
+  const displayTracks = isLoading
+    ? allDisplayTracks
+    : allDisplayTracks.filter((t) => (t.memberTrackIds?.some((id) => liveSlugs.has(id)) ?? liveSlugs.has(t.id)));
+  const tracksByCategory = TRACK_CATEGORY_ORDER.map((category) => ({
+    category,
+    tracks: displayTracks.filter((t) => t.category === category),
+  })).filter((group) => group.tracks.length > 0);
 
   return (
     <main>
@@ -110,7 +121,7 @@ export function LandingClient({ lessonPreview }: { lessonPreview: LessonResponse
         </motion.div>
       </section>
 
-      <StatsBand trackCount={courses.length} />
+      <StatsBand trackCount={displayTracks.length} />
 
       {/* Why us */}
       <section className="border-t border-border bg-surface/40 py-20">
@@ -139,7 +150,7 @@ export function LandingClient({ lessonPreview }: { lessonPreview: LessonResponse
       </section>
 
       {/* How it works */}
-      <section className="py-20">
+      <section className="bg-[#1b3a32] py-20 text-white">
         <div className="mx-auto max-w-6xl px-4">
           <ScrollReveal>
             <h2 className="font-display text-3xl font-medium">What actually happens after you sign up</h2>
@@ -147,11 +158,11 @@ export function LandingClient({ lessonPreview }: { lessonPreview: LessonResponse
           <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((step, i) => (
               <ScrollReveal key={step.title} delay={i * 0.08}>
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-soft)] text-sm font-semibold text-[var(--accent)]">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white">
                   {i + 1}
                 </span>
                 <h3 className="mt-3 font-medium">{step.title}</h3>
-                <p className="mt-1.5 text-sm text-muted">{step.body}</p>
+                <p className="mt-1.5 text-sm text-white/70">{step.body}</p>
               </ScrollReveal>
             ))}
           </div>
@@ -172,21 +183,32 @@ export function LandingClient({ lessonPreview }: { lessonPreview: LessonResponse
           {isLoading ? (
             <Loader />
           ) : (
-            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {courses.map((course, i) => (
-                <ScrollReveal key={course.id} delay={(i % 3) * 0.08}>
-                  <ExpandableTrackCard
-                    course={course}
-                    isExpanded={expandedTrackId === course.id}
-                    onHover={() => setExpandedTrackId(course.id)}
-                    onToggle={() => setExpandedTrackId((prev) => (prev === course.id ? null : course.id))}
-                  />
-                </ScrollReveal>
-              ))}
-
-              <ScrollReveal delay={(courses.length % 3) * 0.08}>
-                <FinanceComingSoonCard />
-              </ScrollReveal>
+            <div className="mt-10 flex flex-col gap-10">
+              {tracksByCategory.map((group, groupIndex) => {
+                const isLastGroup = groupIndex === tracksByCategory.length - 1;
+                return (
+                  <div key={group.category}>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-2">{TRACK_CATEGORY_LABELS[group.category]}</p>
+                    <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.tracks.map((track, i) => (
+                        <ScrollReveal key={track.id} delay={(i % 3) * 0.08}>
+                          <ExpandableTrackCard
+                            track={track}
+                            isExpanded={expandedTrackId === track.id}
+                            onHover={() => setExpandedTrackId(track.id)}
+                            onToggle={() => setExpandedTrackId((prev) => (prev === track.id ? null : track.id))}
+                          />
+                        </ScrollReveal>
+                      ))}
+                      {isLastGroup && (
+                        <ScrollReveal delay={(group.tracks.length % 3) * 0.08}>
+                          <FinanceComingSoonCard />
+                        </ScrollReveal>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -214,7 +236,7 @@ export function LandingClient({ lessonPreview }: { lessonPreview: LessonResponse
 
 function StatsBand({ trackCount }: { trackCount: number }) {
   const stats = [
-    { value: `${trackCount || "6"}`, label: "Live tracks · Finance & Trading coming soon" },
+    { value: `${trackCount}`, label: "Live tracks · Finance & Trading coming soon" },
     { value: `${MASTERY_PHASES.length}`, label: "Levels per track: beginner to mastery" },
     { value: "24/7", label: "AI tutor — never off the clock" },
     { value: "5/day", label: "Free tutor messages" },

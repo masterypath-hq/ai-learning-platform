@@ -7,6 +7,7 @@ export const ProgressActivityTypeSchema = z.enum([
   "lesson_viewed",
   "knowledge_check_completed",
   "module_completed",
+  "course_completed",
   "chat_session_closed",
 ]);
 export type ProgressActivityType = z.infer<typeof ProgressActivityTypeSchema>;
@@ -63,18 +64,39 @@ export const RecentQuizScoreSchema = z.object({
 });
 export type RecentQuizScore = z.infer<typeof RecentQuizScoreSchema>;
 
+/** "Continue where you left off" — the default recommendation. */
+export const ContinueRecommendationSchema = z.object({
+  type: z.literal("continue"),
+  courseId: z.string(),
+  lessonId: z.string(),
+  label: z.string(),
+});
+export type ContinueRecommendation = z.infer<typeof ContinueRecommendationSchema>;
+
+/**
+ * Offered after finishing one native mobile track (mobile-android/mobile-ios) with no
+ * enrollment yet in the other — "master the other platform" accelerated path. Carries a
+ * track slug rather than a courseId since the user may not have a course row for it yet;
+ * the frontend resolves the real course via its own tracks data before enrolling.
+ */
+export const AcceleratorRecommendationSchema = z.object({
+  type: z.literal("accelerator"),
+  targetTrackSlug: z.string(),
+  label: z.string(),
+});
+export type AcceleratorRecommendation = z.infer<typeof AcceleratorRecommendationSchema>;
+
+export const RecommendedNextActionSchema = z
+  .discriminatedUnion("type", [ContinueRecommendationSchema, AcceleratorRecommendationSchema])
+  .nullable();
+export type RecommendedNextAction = z.infer<typeof RecommendedNextActionSchema>;
+
 export const DashboardResponseSchema = z.object({
   courses: z.array(CourseProgressSummarySchema),
   streak: StreakSchema,
   recentQuizScores: z.array(RecentQuizScoreSchema).max(5),
   badges: z.array(BadgeIdSchema),
-  recommendedNextAction: z
-    .object({
-      courseId: z.string(),
-      lessonId: z.string(),
-      label: z.string(),
-    })
-    .nullable(),
+  recommendedNextAction: RecommendedNextActionSchema,
   recentActivity: z.array(ProgressRecordSchema),
 });
 export type DashboardResponse = z.infer<typeof DashboardResponseSchema>;

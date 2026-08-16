@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { createPgPool } from "@ai-learning-platform/shared";
+import { createPgPool } from "@ai-learning-platform/shared/pg-pool";
 import type { SubscriptionProvider } from "@ai-learning-platform/shared";
 import { PgUserRepository } from "./infrastructure/persistence/PgUserRepository.js";
 import { PgWaitlistRepository } from "./infrastructure/persistence/PgWaitlistRepository.js";

@@ -73,13 +73,13 @@ export function TrackChatDemo({ trackIndex, onSelectTrack }: { trackIndex: numbe
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap gap-1.5">
+      <div className="mb-4 flex flex-wrap gap-1">
         {HERO_SCRIPTS.map((s, i) => (
           <button
             key={s.slug}
             onClick={() => onSelectTrack(i)}
             className={clsx(
-              "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              "rounded-full px-2.5 py-1 text-[11px] font-medium leading-none transition-colors",
               i === trackIndex
                 ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                 : "bg-surface-raised text-muted hover:text-foreground"

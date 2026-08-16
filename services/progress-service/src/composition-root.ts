@@ -1,4 +1,4 @@
-import { createPgPool } from "@ai-learning-platform/shared";
+import { createPgPool } from "@ai-learning-platform/shared/pg-pool";
 import { getRedisClient } from "./lib/redis.js";
 import { PgProgressRecordRepository } from "./infrastructure/persistence/PgProgressRecordRepository.js";
 import { PgStreakRepository } from "./infrastructure/persistence/PgStreakRepository.js";

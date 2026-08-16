@@ -6,6 +6,7 @@ export interface IProgressRecordRepository {
   countDistinctLessonsViewed(userId: string, courseId: string): Promise<number>;
   findViewedLessonIds(userId: string, courseId: string): Promise<string[]>;
   hasActivityType(userId: string, activityType: ProgressActivityType): Promise<boolean>;
+  hasCourseActivityType(userId: string, courseId: string, activityType: ProgressActivityType): Promise<boolean>;
   /** Course of the user's most recent progress record, if any — drives "continue where you left off". */
   findMostRecentCourseId(userId: string): Promise<string | null>;
   /** Most recent activity across all types — powers the dashboard's activity feed. */

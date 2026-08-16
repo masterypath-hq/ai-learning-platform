@@ -124,7 +124,7 @@ describe("SubmitQuizAttemptAction", () => {
     expect(publisher.publish).not.toHaveBeenCalled();
   });
 
-  it("routes short_answer questions through the AI grading call and never publishes on a course_final pass", async () => {
+  it("routes short_answer questions through the AI grading call and publishes course_completed (not module_completed) on a course_final pass", async () => {
     const shortAnswerQuestion: QuizQuestion = {
       id: "q3",
       type: "short_answer",
@@ -148,7 +148,27 @@ describe("SubmitQuizAttemptAction", () => {
     });
     expect(result.score).toBe(100);
     expect(result.passed).toBe(true);
-    // course_final is not a module completion, even when it passes
+    // course_final is not a module completion, even when it passes — but it does mark the course done.
+    expect(publisher.publish).toHaveBeenCalledTimes(1);
+    expect(publisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({ activityType: "course_completed", courseId: "course-1", moduleId: null, lessonId: null })
+    );
+  });
+
+  it("does not publish course_completed when a course_final attempt fails", async () => {
+    const attemptRepo = makeAttemptRepo(
+      makeAttempt({
+        type: "course_final",
+        moduleId: null,
+        questions: [{ id: "q1", type: "mcq", prompt: "p", correctAnswer: "a", explanation: "e" }],
+      })
+    );
+    const publisher = makePublisher();
+    const action = new SubmitQuizAttemptAction(attemptRepo, makeQuizServiceClient(), publisher);
+
+    const result = await action.execute("user-1", "attempt-1", [{ questionId: "q1", answer: "wrong" }]);
+
+    expect(result.passed).toBe(false);
     expect(publisher.publish).not.toHaveBeenCalled();
   });
 });

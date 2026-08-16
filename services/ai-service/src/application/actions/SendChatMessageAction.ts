@@ -31,7 +31,7 @@ export class SendChatMessageAction implements ISendChatMessageAction {
     const userMessage = await this.chatMessageRepo.create({ sessionId, role: "user", content });
 
     this.streamingSessionIds.add(sessionId);
-    this.streamReply(sessionId, session.subjectArea, session.track, session.topic)
+    this.streamReply(sessionId, session.subjectArea, session.track, session.topic, session.learnerProfile)
       .catch((err) => {
         console.error("[ai-service] Unhandled error streaming tutor reply:", err);
       })
@@ -46,7 +46,8 @@ export class SendChatMessageAction implements ISendChatMessageAction {
     sessionId: string,
     subjectArea: Parameters<typeof buildTutorSystemPrompt>[0],
     track: string,
-    topic: string | null
+    topic: string | null,
+    learnerProfile: string | null
   ): Promise<void> {
     const history = await this.chatMessageRepo.findBySessionId(sessionId);
     const truncated = history.slice(-MAX_HISTORY_MESSAGES);
@@ -55,7 +56,7 @@ export class SendChatMessageAction implements ISendChatMessageAction {
       content: m.content,
     }));
 
-    const systemPrompt = buildTutorSystemPrompt(subjectArea, track, topic);
+    const systemPrompt = buildTutorSystemPrompt(subjectArea, track, topic, learnerProfile);
 
     let fullText = "";
     try {

@@ -120,7 +120,8 @@ export class CourseService implements ICourseService {
     selfAssessedLevel: SelfAssessmentLevel,
     questionId: string,
     answer: string,
-    confidenceRatings: SkillConfidenceRating[]
+    confidenceRatings: SkillConfidenceRating[],
+    goal?: string | null
   ): Promise<EnrolledCourse> {
     const course = await this.courseRepo.findById(courseId);
     if (!course) throw new Error("COURSE_NOT_FOUND");
@@ -131,13 +132,13 @@ export class CourseService implements ICourseService {
     const isCorrect = answer === question.correctOption;
     const phase = isCorrect ? question.phaseIfCorrect : question.phaseIfWrong;
 
-    const enrollment = await this.enrollmentRepo.create(course.id, userId, phase, selfAssessedLevel);
     await this.placementAnswerRepo.record(userId, questionId, answer, isCorrect);
     if (confidenceRatings.length > 0) {
+      // Upsert before creating the enrollment so its prior-experience lookup sees these ratings.
       await this.userSkillConfidenceRepo.upsertMany(userId, confidenceRatings);
     }
 
-    return enrollment;
+    return this.enrollmentRepo.create(course.id, userId, phase, selfAssessedLevel, goal);
   }
 
   async persistGeneratedContent(courseId: string, content: PersistCourseContentRequest): Promise<void> {

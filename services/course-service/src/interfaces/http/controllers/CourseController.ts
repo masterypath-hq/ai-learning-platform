@@ -2,8 +2,8 @@ import type { Request, Response } from "express";
 import type { ICourseService } from "../../../application/interfaces/ICourseService.js";
 import type { IMarkLessonViewedAction } from "../../../application/interfaces/IMarkLessonViewedAction.js";
 import type { AuthedRequest } from "../middleware/authMiddleware.js";
-import { PersistCourseContentRequestSchema } from "@ai-learning-platform/shared";
-import type { ConfidenceLevel, SelfAssessmentLevel } from "@ai-learning-platform/shared";
+import { CompleteOnboardingRequestSchema, PersistCourseContentRequestSchema } from "@ai-learning-platform/shared";
+import type { SelfAssessmentLevel } from "@ai-learning-platform/shared";
 
 const HTTP = {
   OK: 200,
@@ -118,12 +118,12 @@ export class CourseController {
   async completeOnboarding(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const userId = (req as AuthedRequest).userId;
-    const { selfAssessedLevel, questionId, answer, confidenceRatings } = req.body as {
-      selfAssessedLevel: SelfAssessmentLevel;
-      questionId: string;
-      answer: string;
-      confidenceRatings: { skillId: string; level: ConfidenceLevel }[];
-    };
+    const parsed = CompleteOnboardingRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(HTTP.BAD_REQUEST).json({ error: parsed.error.flatten() });
+      return;
+    }
+    const { selfAssessedLevel, questionId, answer, confidenceRatings, goal } = parsed.data;
     try {
       const result = await this.courseService.completeOnboarding(
         id,
@@ -131,7 +131,8 @@ export class CourseController {
         selfAssessedLevel,
         questionId,
         answer,
-        confidenceRatings ?? []
+        confidenceRatings,
+        goal ?? null
       );
       res.status(HTTP.CREATED).json(result);
     } catch (e) {

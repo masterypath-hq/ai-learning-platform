@@ -2,6 +2,7 @@
  * Course API contracts (v1).
  * Consumed by frontend and course service. No implementation details.
  */
+import { z } from "zod";
 
 // ----- Domain types -----
 
@@ -117,6 +118,10 @@ export interface EnrolledCourse {
   currentPhase: PhaseLevel;
   selfAssessedLevel: SelfAssessmentLevel | null;
   selfAssessmentCompletedAt: string | null;
+  /** Freeform learner-stated goal from onboarding (e.g. "become a pentester"), or null if skipped. */
+  goal: string | null;
+  /** Names of skills the learner rated "used_it"/"confident" on on this course's confidence check, for tutor personalization. */
+  priorExperienceSkillNames: string[];
   enrolledAt: string;
   completedAt: string | null;
 }
@@ -203,3 +208,22 @@ export interface ModuleWithContextResponse {
   courseId: string;
   module: ModuleResponse;
 }
+
+// ----- Onboarding -----
+
+export const CompleteOnboardingRequestSchema = z.object({
+  selfAssessedLevel: z.enum(["complete_beginner", "some_exposure", "intermediate", "advanced"]),
+  questionId: z.string(),
+  answer: z.string(),
+  /** Freeform learner-stated goal (e.g. "become a pentester"), optional. */
+  goal: z.string().trim().max(280).optional(),
+  confidenceRatings: z
+    .array(
+      z.object({
+        skillId: z.string(),
+        level: z.enum(["never_heard", "seen_it", "used_it", "confident"]),
+      })
+    )
+    .default([]),
+});
+export type CompleteOnboardingRequest = z.infer<typeof CompleteOnboardingRequestSchema>;

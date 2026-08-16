@@ -1,6 +1,8 @@
 import type {
   CourseResponse,
+  EnrolledCourse,
   LessonWithContextResponse,
+  ListEnrolledCoursesResponse,
   ModuleWithContextResponse,
 } from "@ai-learning-platform/shared";
 import type { ICourseServiceClient } from "../../application/interfaces/ICourseServiceClient.js";
@@ -36,5 +38,14 @@ export class CourseServiceClient implements ICourseServiceClient {
     if (res.status === 404) throw new Error("COURSE_NOT_FOUND");
     if (!res.ok) throw new Error(`course-service getCourse failed: ${res.status} ${await res.text()}`);
     return res.json() as Promise<CourseResponse>;
+  }
+
+  async getEnrolledCourses(userId: string): Promise<EnrolledCourse[]> {
+    const res = await fetch(`${this.baseUrl}/api/v1/internal/enrollments/${userId}`, {
+      headers: { "x-internal-secret": this.internalServiceSecret },
+    });
+    if (!res.ok) throw new Error(`course-service getEnrolledCourses failed: ${res.status} ${await res.text()}`);
+    const body = (await res.json()) as { data: ListEnrolledCoursesResponse };
+    return body.data.courses;
   }
 }

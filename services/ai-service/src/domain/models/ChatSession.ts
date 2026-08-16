@@ -6,6 +6,7 @@ export interface ChatSessionProps {
   subjectArea: ChatSubjectArea;
   track: string;
   topic: string | null;
+  learnerProfile: string | null;
   summary: string | null;
   suggestedNextQuestions: string[];
   createdAt: Date;
@@ -24,6 +25,7 @@ export class ChatSession {
   get subjectArea(): ChatSubjectArea { return this.props.subjectArea; }
   get track(): string { return this.props.track; }
   get topic(): string | null { return this.props.topic; }
+  get learnerProfile(): string | null { return this.props.learnerProfile; }
   get summary(): string | null { return this.props.summary; }
   get suggestedNextQuestions(): string[] { return this.props.suggestedNextQuestions; }
   get createdAt(): Date { return this.props.createdAt; }
@@ -36,6 +38,7 @@ export class ChatSession {
       subjectArea: this.props.subjectArea,
       track: this.props.track,
       topic: this.props.topic,
+      learnerProfile: this.props.learnerProfile,
       summary: this.props.summary,
       suggestedNextQuestions: this.props.suggestedNextQuestions,
       createdAt: this.props.createdAt.toISOString(),

@@ -29,7 +29,8 @@ export interface ICourseService {
     selfAssessedLevel: SelfAssessmentLevel,
     questionId: string,
     answer: string,
-    confidenceRatings: SkillConfidenceRating[]
+    confidenceRatings: SkillConfidenceRating[],
+    goal?: string | null
   ): Promise<EnrolledCourse>;
   persistGeneratedContent(courseId: string, content: PersistCourseContentRequest): Promise<void>;
   getLessonById(lessonId: string): Promise<LessonWithContextResponse>;
