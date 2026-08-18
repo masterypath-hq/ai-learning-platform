@@ -46,6 +46,7 @@
   --accent-hover: #24493f;
   --accent-soft: rgba(27, 58, 50, 0.08);
   --accent-foreground: #f7f2e9;
+  --warm-glow: rgba(180, 83, 9, 0.12);
 }
 
 [data-theme="dark"] {
@@ -69,6 +70,7 @@
   --accent-hover: #8ad1b2;
   --accent-soft: rgba(111, 191, 154, 0.14);
   --accent-foreground: #0e1512;
+  --warm-glow: rgba(251, 191, 36, 0.08);
 }
 
 /* Subject accent — programming stays on-brand (forest green); finance gets a
@@ -102,6 +104,35 @@ body {
 .font-display {
   font-family: var(--font-serif);
   font-optical-sizing: auto;
+}
+
+/* Hero ambience: two soft radial washes (warm + accent) behind the headline, kept subtle. */
+.hero-glow {
+  position: absolute;
+  inset: -15% -10% auto -10%;
+  height: 140%;
+  background:
+    radial-gradient(480px circle at 18% 15%, var(--warm-glow), transparent 60%),
+    radial-gradient(560px circle at 88% 35%, var(--accent-soft), transparent 65%);
+}
+
+/* Faint dot-grid so flat cream/dark fields aren't dead flat. Masked to fade at the edges. */
+.dot-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--color-foreground) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.035;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 30%, black, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 30%, black, transparent 75%);
+}
+
+/* Dark-theme card polish: a whisper of the accent green in the border + a soft inner glow. */
+[data-theme="dark"] .card {
+  border-color: rgba(111, 191, 154, 0.18);
+  box-shadow:
+    0 0 0 1px rgba(111, 191, 154, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .prose-lesson {

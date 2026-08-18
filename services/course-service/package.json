@@ -13,7 +13,8 @@
     "migrate:create": "node-pg-migrate create --migrations-dir db/migrations --migrations-table pgmigrations_course --envPath ../../.env -j js",
     "migrate:fake": "node-pg-migrate up --fake --migrations-dir db/migrations --migrations-table pgmigrations_course --envPath ../../.env",
     "seed:courses": "node db/seeds/courses.js",
-    "seed:onboarding": "node db/seeds/onboarding.js"
+    "seed:onboarding": "node db/seeds/onboarding.js",
+    "seed:onboarding-cybersecurity": "node db/seeds/onboarding-cybersecurity.js"
   },
   "dependencies": {
     "@ai-learning-platform/shared": "*",

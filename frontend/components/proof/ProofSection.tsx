@@ -9,10 +9,11 @@ import { DashboardPreviewCard } from "./DashboardPreviewCard";
 
 export function ProofSection({ lesson }: { lesson: LessonResponse | null }) {
   return (
-    <section className="border-t border-border bg-[#1b3a32] py-20 text-white">
+    <section className="border-t border-border bg-[#1b3a32] py-14 text-white md:py-24">
       <div className="mx-auto max-w-6xl px-4">
         <ScrollReveal>
-          <h2 className="font-display text-3xl font-medium">See what a lesson actually looks like</h2>
+          <p className="text-xs font-medium uppercase tracking-wide text-white/50">See it in action</p>
+          <h2 className="mt-2 font-display text-3xl font-medium">See what a lesson actually looks like</h2>
           <p className="mt-2 max-w-2xl text-white/70">Real content from the Cybersecurity track — not a mockup screenshot.</p>
         </ScrollReveal>
 

@@ -96,3 +96,51 @@ export const PersistCourseContentRequestSchema = z.object({
   modules: z.array(PersistModuleSchema).min(1),
 });
 export type PersistCourseContentRequest = z.infer<typeof PersistCourseContentRequestSchema>;
+
+// ----- Incremental generation (checkpointed persistence + resume) -----
+
+/** Request body for POST /internal/courses/modules/lessons on ai-service. */
+export const GenerateModuleLessonsRequestSchema = z.object({
+  trackSlug: z.string().min(1),
+  module: GeneratedModuleOutlineSchema,
+});
+export type GenerateModuleLessonsRequest = z.infer<typeof GenerateModuleLessonsRequestSchema>;
+
+/** Claude token usage for one generation call, surfaced for cost logging. */
+export const ClaudeUsageSchema = z.object({
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+});
+export type ClaudeUsage = z.infer<typeof ClaudeUsageSchema>;
+
+/** Request body for POST /api/v1/courses/:id/generation/outline on course-service. Server assigns
+ * orderIndex from array position, so callers must submit modules already in phase order. */
+export const PersistOutlineRequestSchema = CourseOutlineResponseSchema;
+export type PersistOutlineRequest = z.infer<typeof PersistOutlineRequestSchema>;
+
+/** Request body for POST /api/v1/courses/:id/generation/modules/:moduleId/lessons. */
+export const PersistModuleLessonsRequestSchema = ModuleLessonsResponseSchema;
+export type PersistModuleLessonsRequest = z.infer<typeof PersistModuleLessonsRequestSchema>;
+
+export const GenerationModuleStatusSchema = z.object({
+  id: z.string().uuid(),
+  phase: PhaseLevelSchema,
+  title: z.string(),
+  description: z.string(),
+  keyConcepts: z.array(z.string()),
+  durationWeeks: z.number().int().positive(),
+  orderIndex: z.number().int().nonnegative(),
+  lessonsGenerated: z.boolean(),
+});
+export type GenerationModuleStatus = z.infer<typeof GenerationModuleStatusSchema>;
+
+/** Response body for GET /api/v1/courses/:id/generation/status — the resume/report source of truth. */
+export const GenerationStatusResponseSchema = z.object({
+  courseId: z.string().uuid(),
+  slug: z.string(),
+  title: z.string(),
+  hasOutline: z.boolean(),
+  isFullyGenerated: z.boolean(),
+  modules: z.array(GenerationModuleStatusSchema),
+});
+export type GenerationStatusResponse = z.infer<typeof GenerationStatusResponseSchema>;

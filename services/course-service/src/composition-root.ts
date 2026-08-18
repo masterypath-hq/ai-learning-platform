@@ -13,6 +13,7 @@ import { PgSkillRepository } from "./infrastructure/persistence/PgSkillRepositor
 import { PgUserSkillConfidenceRepository } from "./infrastructure/persistence/PgUserSkillConfidenceRepository.js";
 import { PgPlacementAnswerRepository } from "./infrastructure/persistence/PgPlacementAnswerRepository.js";
 import { PgCourseContentWriter } from "./infrastructure/persistence/PgCourseContentWriter.js";
+import { PgCourseGenerationWriter } from "./infrastructure/persistence/PgCourseGenerationWriter.js";
 import { GetCourseAction } from "./application/actions/GetCourseAction.js";
 import { CourseService } from "./application/services/CourseService.js";
 import { CourseController } from "./interfaces/http/controllers/CourseController.js";
@@ -43,6 +44,7 @@ export async function createCompositionRoot() {
   const userSkillConfidenceRepo = new PgUserSkillConfidenceRepository(pool);
   const placementAnswerRepo = new PgPlacementAnswerRepository(pool);
   const courseContentWriter = new PgCourseContentWriter(pool);
+  const courseGenerationWriter = new PgCourseGenerationWriter(pool);
 
   const getCourseAction = new GetCourseAction(courseRepo, moduleRepo, lessonRepo);
   const courseService = new CourseService(
@@ -55,7 +57,8 @@ export async function createCompositionRoot() {
     skillRepo,
     userSkillConfidenceRepo,
     placementAnswerRepo,
-    courseContentWriter
+    courseContentWriter,
+    courseGenerationWriter
   );
   const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
   const redis = getRedisClient(redisUrl);

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Clock, ChevronDown } from "lucide-react";
+import clsx from "clsx";
 import type { DisplayTrack } from "@ai-learning-platform/shared";
 import { resolveTrackIcon, MASTERY_PHASES } from "@/lib/track-metadata";
 import { Card } from "./Card";
@@ -19,10 +20,14 @@ export function ExpandableTrackCard({
   onToggle: () => void;
 }) {
   const Icon = resolveTrackIcon(track.icon);
+  const reduced = useReducedMotion();
 
   return (
     <Card
-      className="cursor-pointer overflow-hidden p-0 transition-colors hover:border-[var(--accent)]"
+      className={clsx(
+        "cursor-pointer overflow-hidden p-0 transition-[border-color,box-shadow,transform] duration-300 hover:border-[var(--accent)]",
+        isExpanded && "-translate-y-0.5 shadow-xl shadow-black/[0.06]"
+      )}
       onMouseEnter={onHover}
       onClick={onToggle}
     >
@@ -45,7 +50,7 @@ export function ExpandableTrackCard({
       <motion.div
         initial={false}
         animate={{ height: isExpanded ? "auto" : 0 }}
-        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: reduced ? 0 : 0.35, ease: [0.22, 1, 0.36, 1] }}
         className="overflow-hidden"
       >
         <div className="flex flex-col gap-4 px-5 pb-5">

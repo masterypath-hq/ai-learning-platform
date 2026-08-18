@@ -11,6 +11,7 @@ import type { ISkillRepository } from "../interfaces/ISkillRepository.js";
 import type { IUserSkillConfidenceRepository } from "../interfaces/IUserSkillConfidenceRepository.js";
 import type { IPlacementAnswerRepository } from "../interfaces/IPlacementAnswerRepository.js";
 import type { ICourseContentWriter } from "../interfaces/ICourseContentWriter.js";
+import type { ICourseGenerationWriter } from "../interfaces/ICourseGenerationWriter.js";
 import type { EnrolledCourse } from "@ai-learning-platform/shared";
 
 function makeCourse(): Course {
@@ -114,7 +115,8 @@ describe("CourseService.completeOnboarding", () => {
       {} as ISkillRepository,
       userSkillConfidenceRepo,
       placementAnswerRepo,
-      {} as ICourseContentWriter
+      {} as ICourseContentWriter,
+      {} as ICourseGenerationWriter
     );
 
     const result = await service.completeOnboarding(
@@ -170,7 +172,8 @@ describe("CourseService.completeOnboarding", () => {
       {} as ISkillRepository,
       userSkillConfidenceRepo,
       placementAnswerRepo,
-      {} as ICourseContentWriter
+      {} as ICourseContentWriter,
+      {} as ICourseGenerationWriter
     );
 
     await service.completeOnboarding("course-1", "user-1", "advanced", "question-1", "a", []);

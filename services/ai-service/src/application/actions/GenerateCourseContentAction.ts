@@ -24,13 +24,19 @@ export class GenerateCourseContentAction implements IGenerateCourseContentAction
   constructor(private readonly generator: ICourseContentGenerator) {}
 
   async execute(request: GenerateCourseContentRequest): Promise<PersistCourseContentRequest> {
-    const outline = await this.generator.generateCourseOutline(request.trackSlug, request.title, request.description);
+    const { data: outline } = await this.generator.generateCourseOutline(
+      request.trackSlug,
+      request.title,
+      request.description
+    );
 
     const orderedModules = [...outline.modules].sort((a, b) => PHASE_ORDER[a.phase] - PHASE_ORDER[b.phase]);
 
     const modules: PersistModule[] = [];
     for (const [moduleIndex, moduleOutline] of orderedModules.entries()) {
-      const { lessons } = await this.generator.generateModuleLessons(request.trackSlug, moduleOutline);
+      const {
+        data: { lessons },
+      } = await this.generator.generateModuleLessons(request.trackSlug, moduleOutline);
 
       modules.push({
         ...moduleOutline,

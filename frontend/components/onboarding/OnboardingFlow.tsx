@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Code2, Banknote, Check, Smartphone, Apple } from "lucide-react";
-import type { ConfidenceLevel, SelfAssessmentLevel, TrackCourse, DisplayTrack } from "@ai-learning-platform/shared";
+import { Code2, Banknote, Check, Smartphone, Apple, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
+import type {
+  CompleteOnboardingResponse,
+  ConfidenceLevel,
+  PhaseLevel,
+  SelfAssessmentLevel,
+  TrackCourse,
+  DisplayTrack,
+} from "@ai-learning-platform/shared";
 import { groupTracksForDisplay, TRACK_CATEGORY_ORDER, TRACK_CATEGORY_LABELS } from "@ai-learning-platform/shared";
 import { useTracks } from "@/lib/queries/tracks";
-import { usePlacementQuestion, useSkills, useCompleteOnboarding } from "@/lib/queries/courses";
+import { usePlacementQuestion, useSkills, useCompleteOnboarding, useCheckPlacementAnswer } from "@/lib/queries/courses";
 import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/Button";
 import { Loader } from "@/components/Loader";
@@ -25,6 +32,13 @@ const CONFIDENCE_LEVELS: { value: ConfidenceLevel; label: string }[] = [
   { value: "used_it", label: "Used it" },
   { value: "confident", label: "Confident" },
 ];
+
+const PHASE_LABELS: Record<PhaseLevel, string> = {
+  foundation: "Foundation",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+  mastery: "Mastery",
+};
 
 type Step = 2 | 3 | 4;
 
@@ -46,6 +60,7 @@ export function OnboardingFlow({
   const [answer, setAnswer] = useState<string | null>(null);
   const [confidenceRatings, setConfidenceRatings] = useState<Record<string, ConfidenceLevel>>({});
   const [goal, setGoal] = useState("");
+  const [result, setResult] = useState<CompleteOnboardingResponse | null>(null);
 
   const { data: tracks, isLoading: tracksLoading } = useTracks();
 
@@ -55,12 +70,20 @@ export function OnboardingFlow({
     if (match) setCourse(match);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tracks, initialTrackSlug]);
-  const { data: placementQuestion, isLoading: placementLoading } = usePlacementQuestion(
-    course?.id,
-    selfAssessedLevel ?? undefined
-  );
+  const {
+    data: placementQuestion,
+    isLoading: placementLoading,
+    isError: placementErrored,
+    refetch: refetchPlacementQuestion,
+  } = usePlacementQuestion(course?.id, selfAssessedLevel ?? undefined);
   const { data: skillsData, isLoading: skillsLoading } = useSkills(course?.id);
   const completeOnboarding = useCompleteOnboarding();
+  const checkAnswer = useCheckPlacementAnswer();
+
+  function selectAnswer(key: string) {
+    setAnswer(key);
+    if (placementQuestion) checkAnswer.mutate({ questionId: placementQuestion.id, answer: key });
+  }
 
   const courses = tracks?.tracks.flatMap((t) => t.courses) ?? [];
   const liveSlugs = new Set(courses.map((c) => c.slug));
@@ -96,7 +119,29 @@ export function OnboardingFlow({
       confidenceRatings: Object.entries(confidenceRatings).map(([skillId, level]) => ({ skillId, level })),
       goal: goal.trim() || undefined,
     });
-    onComplete(enrollment.courseId);
+    setResult(enrollment);
+  }
+
+  if (result) {
+    return (
+      <AuthShell step={{ current: 4, total: 4 }}>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+            <span className="text-sm text-muted">You&apos;re starting at the</span>
+            <span className="font-display text-lg font-medium">{PHASE_LABELS[result.currentPhase]} level</span>
+          </div>
+
+          <div>
+            <h1 className="font-display text-2xl font-medium">{result.title}</h1>
+            <p className="mt-1 text-sm text-muted">Here&apos;s the curriculum, broken down into modules.</p>
+          </div>
+
+          <Button onClick={() => onComplete(result.courseId)}>
+            See your curriculum <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </AuthShell>
+    );
   }
 
   if (step === 2) {
@@ -219,6 +264,7 @@ export function OnboardingFlow({
                 onClick={() => {
                   setSelfAssessedLevel(l.value);
                   setAnswer(null);
+                  checkAnswer.reset();
                 }}
                 className={`flex flex-col rounded-lg border px-4 py-2.5 text-left transition-colors ${
                   selfAssessedLevel === l.value
@@ -247,7 +293,16 @@ export function OnboardingFlow({
           </div>
 
           {selfAssessedLevel ? (
-            placementLoading || !placementQuestion ? (
+            placementErrored ? (
+              <div className="flex flex-col items-start gap-2 rounded-lg border border-danger/30 bg-danger/5 p-4">
+                <p className="text-sm text-danger">
+                  Couldn&apos;t load a placement question for this track and level.
+                </p>
+                <Button variant="ghost" onClick={() => refetchPlacementQuestion()}>
+                  Try again
+                </Button>
+              </div>
+            ) : placementLoading || !placementQuestion ? (
               <Loader />
             ) : (
               <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
@@ -258,20 +313,43 @@ export function OnboardingFlow({
                   </pre>
                 ) : null}
                 <div className="grid gap-2">
-                  {(Object.entries(placementQuestion.options) as [string, string][]).map(([key, text]) => (
-                    <button
-                      key={key}
-                      onClick={() => setAnswer(key)}
-                      className={`rounded-lg border px-3 py-2 text-left text-sm ${
-                        answer === key
-                          ? "border-[var(--accent)] bg-[var(--accent-soft)]"
-                          : "border-border-strong hover:border-[var(--accent)]"
-                      }`}
-                    >
-                      {text}
-                    </button>
-                  ))}
+                  {(Object.entries(placementQuestion.options) as [string, string][]).map(([key, text]) => {
+                    const isSelected = answer === key;
+                    const showResult = isSelected && checkAnswer.data;
+                    const isCorrect = showResult && checkAnswer.data.correct;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => selectAnswer(key)}
+                        className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                          showResult
+                            ? isCorrect
+                              ? "border-success bg-success/10"
+                              : "border-danger bg-danger/10"
+                            : isSelected
+                              ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                              : "border-border-strong hover:border-[var(--accent)]"
+                        }`}
+                      >
+                        {text}
+                      </button>
+                    );
+                  })}
                 </div>
+                {answer && checkAnswer.isPending ? <p className="text-xs text-muted-2">Checking…</p> : null}
+                {answer && checkAnswer.data ? (
+                  <p className={`flex items-center gap-1.5 text-sm font-medium ${checkAnswer.data.correct ? "text-success" : "text-danger"}`}>
+                    {checkAnswer.data.correct ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" /> Correct!
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-4 w-4" /> Not quite — that&apos;s okay, we&apos;ll place you accordingly.
+                      </>
+                    )}
+                  </p>
+                ) : null}
               </div>
             )
           ) : null}

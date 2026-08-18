@@ -15,50 +15,55 @@ const VALID_OUTLINE = {
   ],
 };
 
-function textResponse(payload: unknown) {
-  return { content: [{ type: "text", text: JSON.stringify(payload) }] };
+function finalMessage(payload: unknown) {
+  return {
+    content: [{ type: "text", text: JSON.stringify(payload) }],
+    usage: { input_tokens: 100, output_tokens: 200 },
+  };
 }
 
-function makeClient(...responses: unknown[]): Anthropic {
-  const create = jest.fn();
-  for (const response of responses) {
-    create.mockResolvedValueOnce(response as never);
+function makeClient(...payloads: unknown[]): Anthropic {
+  const stream = jest.fn();
+  for (const payload of payloads) {
+    stream.mockReturnValueOnce({ finalMessage: () => Promise.resolve(finalMessage(payload)) } as never);
   }
-  return { messages: { create } } as unknown as Anthropic;
+  return { messages: { stream } } as unknown as Anthropic;
 }
 
 describe("ClaudeCourseContentGenerator.generateCourseOutline", () => {
-  it("returns the parsed outline on a valid first response", async () => {
-    const client = makeClient(textResponse(VALID_OUTLINE));
+  it("returns the parsed outline and token usage on a valid first response", async () => {
+    const client = makeClient(VALID_OUTLINE);
     const generator = new ClaudeCourseContentGenerator(client);
 
     const result = await generator.generateCourseOutline("backend", "Backend Engineering", "desc");
 
-    expect(result.modules).toHaveLength(6);
-    expect(client.messages.create).toHaveBeenCalledTimes(1);
+    expect(result.data.modules).toHaveLength(6);
+    expect(result.usage).toEqual({ inputTokens: 100, outputTokens: 200 });
+    expect(client.messages.stream).toHaveBeenCalledTimes(1);
   });
 
   it("retries once with validation errors appended when the first response is invalid, then succeeds", async () => {
     const invalid = { learningObjectives: [], prerequisites: [], modules: [] };
-    const client = makeClient(textResponse(invalid), textResponse(VALID_OUTLINE));
+    const client = makeClient(invalid, VALID_OUTLINE);
     const generator = new ClaudeCourseContentGenerator(client);
 
     const result = await generator.generateCourseOutline("backend", "Backend Engineering", "desc");
 
-    expect(result.modules).toHaveLength(6);
-    expect(client.messages.create).toHaveBeenCalledTimes(2);
-    const secondCallArgs = (client.messages.create as jest.Mock).mock.calls[1][0] as { messages: { content: string }[] };
+    expect(result.data.modules).toHaveLength(6);
+    expect(result.usage).toEqual({ inputTokens: 200, outputTokens: 400 });
+    expect(client.messages.stream).toHaveBeenCalledTimes(2);
+    const secondCallArgs = (client.messages.stream as jest.Mock).mock.calls[1][0] as { messages: { content: string }[] };
     expect(secondCallArgs.messages[0].content).toMatch(/failed validation/i);
   });
 
   it("throws after the retry also fails validation", async () => {
     const invalid = { learningObjectives: [], prerequisites: [], modules: [] };
-    const client = makeClient(textResponse(invalid), textResponse(invalid));
+    const client = makeClient(invalid, invalid);
     const generator = new ClaudeCourseContentGenerator(client);
 
     await expect(generator.generateCourseOutline("backend", "Backend Engineering", "desc")).rejects.toThrow(
       /failed validation after retry/i
     );
-    expect(client.messages.create).toHaveBeenCalledTimes(2);
+    expect(client.messages.stream).toHaveBeenCalledTimes(2);
   });
 });

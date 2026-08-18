@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  CheckPlacementAnswerResponse,
+  CompleteOnboardingResponse,
   CourseResponse,
   ListEnrolledCoursesResponse,
   PlacementQuestionResponse,
@@ -36,6 +38,16 @@ export function usePlacementQuestion(courseId: string | undefined, selfAssessedL
   });
 }
 
+export function useCheckPlacementAnswer() {
+  return useMutation({
+    mutationFn: ({ questionId, answer }: { questionId: string; answer: string }) =>
+      apiFetch<CheckPlacementAnswerResponse>(`/api/courses/placement-questions/${questionId}/check`, {
+        method: "POST",
+        body: { answer },
+      }),
+  });
+}
+
 export function useSkills(courseId: string | undefined) {
   return useQuery({
     queryKey: ["skills", courseId],
@@ -55,7 +67,7 @@ export function useCompleteOnboarding() {
       confidenceRatings: { skillId: string; level: ConfidenceLevel }[];
       goal?: string;
     }) =>
-      apiFetch<EnrolledCourse>(`/api/courses/${input.courseId}/onboarding`, {
+      apiFetch<CompleteOnboardingResponse>(`/api/courses/${input.courseId}/onboarding`, {
         method: "POST",
         body: {
           selfAssessedLevel: input.selfAssessedLevel,

@@ -29,8 +29,8 @@ export class ClaudeQuizGenerator implements IQuizGenerator {
     keyTakeaways: string[];
   }): Promise<GeneratedQuizQuestion[]> {
     const { system, user } = buildKnowledgeCheckPrompt(lesson);
-    const result = await generateValidatedJson(this.client, MAX_TOKENS, system, user, KnowledgeCheckGenerationSchema);
-    return result.questions;
+    const { data } = await generateValidatedJson(this.client, MAX_TOKENS, system, user, KnowledgeCheckGenerationSchema);
+    return data.questions;
   }
 
   async generateModuleQuiz(
@@ -38,8 +38,8 @@ export class ClaudeQuizGenerator implements IQuizGenerator {
     lessons: { title: string; explanationContent: string | null; keyTakeaways: string[] }[]
   ): Promise<GeneratedQuizQuestion[]> {
     const { system, user } = buildModuleQuizPrompt(module, lessons);
-    const result = await generateValidatedJson(this.client, MAX_TOKENS, system, user, GradedQuizGenerationSchema);
-    return result.questions;
+    const { data } = await generateValidatedJson(this.client, MAX_TOKENS, system, user, GradedQuizGenerationSchema);
+    return data.questions;
   }
 
   async generateCourseFinal(course: {
@@ -48,13 +48,13 @@ export class ClaudeQuizGenerator implements IQuizGenerator {
     modules: { title: string; description: string | null; keyConcepts: string[] }[];
   }): Promise<GeneratedQuizQuestion[]> {
     const { system, user } = buildCourseFinalPrompt(course);
-    const result = await generateValidatedJson(this.client, MAX_TOKENS, system, user, GradedQuizGenerationSchema);
-    return result.questions;
+    const { data } = await generateValidatedJson(this.client, MAX_TOKENS, system, user, GradedQuizGenerationSchema);
+    return data.questions;
   }
 
   async gradeShortAnswers(items: GradeShortAnswerItem[]): Promise<GradeShortAnswerResult[]> {
     const { system, user } = buildGradeShortAnswersPrompt(items);
-    const result = await generateValidatedJson(this.client, MAX_TOKENS, system, user, GradeShortAnswersResponseSchema);
-    return result.results;
+    const { data } = await generateValidatedJson(this.client, MAX_TOKENS, system, user, GradeShortAnswersResponseSchema);
+    return data.results;
   }
 }

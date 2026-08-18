@@ -23,12 +23,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || isLoading}
         className={clsx(
-          "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+          "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-[color,background-color,box-shadow,transform] duration-200 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none",
           sizeClasses[size],
           variant === "primary" &&
-            "bg-[var(--accent)] text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]",
+            "bg-[var(--accent)] text-[var(--accent-foreground)] hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] hover:shadow-lg hover:shadow-[var(--accent)]/25 active:translate-y-0",
           variant === "secondary" &&
-            "border border-border-strong bg-surface text-foreground hover:bg-surface-hover",
+            "border border-border-strong bg-surface text-foreground hover:-translate-y-0.5 hover:bg-surface-hover hover:shadow-md active:translate-y-0",
           variant === "ghost" && "text-muted hover:bg-surface hover:text-foreground",
           variant === "danger" && "bg-danger/10 text-danger hover:bg-danger/20",
           className

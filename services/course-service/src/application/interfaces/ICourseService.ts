@@ -1,6 +1,10 @@
 import type {
+  CompleteOnboardingResponse,
+  CourseOutlineResponse,
   CourseResponse,
   EnrolledCourse,
+  GenerationModuleStatus,
+  GenerationStatusResponse,
   LessonWithContextResponse,
   ListTrackCoursesResponse,
   ListEnrolledCoursesResponse,
@@ -8,6 +12,7 @@ import type {
   ListTracksResponse,
   ModuleWithContextResponse,
   PersistCourseContentRequest,
+  PersistLesson,
   PlacementQuestionResponse,
   SelfAssessmentLevel,
   SkillResponse,
@@ -22,6 +27,7 @@ export interface ICourseService {
   listTracks(): Promise<ListTracksResponse>;
   listSkills(courseId: string): Promise<SkillResponse[]>;
   getPlacementQuestion(courseId: string, selfAssessedLevel: SelfAssessmentLevel): Promise<PlacementQuestionResponse>;
+  checkPlacementAnswer(questionId: string, answer: string): Promise<boolean>;
   enrollCourse(courseId: string, userId: string): Promise<EnrolledCourse>;
   completeOnboarding(
     courseId: string,
@@ -31,8 +37,13 @@ export interface ICourseService {
     answer: string,
     confidenceRatings: SkillConfidenceRating[],
     goal?: string | null
-  ): Promise<EnrolledCourse>;
+  ): Promise<CompleteOnboardingResponse>;
   persistGeneratedContent(courseId: string, content: PersistCourseContentRequest): Promise<void>;
   getLessonById(lessonId: string): Promise<LessonWithContextResponse>;
   getModuleById(moduleId: string): Promise<ModuleWithContextResponse>;
+
+  getGenerationStatus(courseId: string): Promise<GenerationStatusResponse>;
+  persistGenerationOutline(courseId: string, outline: CourseOutlineResponse): Promise<GenerationModuleStatus[]>;
+  persistGenerationModuleLessons(courseId: string, moduleId: string, lessons: PersistLesson[]): Promise<void>;
+  clearGeneratedContent(courseId: string): Promise<void>;
 }

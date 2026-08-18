@@ -16,6 +16,16 @@ export class CourseGenResource {
       this.internalServiceMiddleware,
       this.wrapAsync((req, res) => this.controller.generate(req, res))
     );
+    this.app.post(
+      "/internal/courses/outline",
+      this.internalServiceMiddleware,
+      this.wrapAsync((req, res) => this.controller.generateOutline(req, res))
+    );
+    this.app.post(
+      "/internal/courses/modules/lessons",
+      this.internalServiceMiddleware,
+      this.wrapAsync((req, res) => this.controller.generateModuleLessons(req, res))
+    );
   }
 
   private wrapAsync(handler: AsyncHandler) {

@@ -131,6 +131,11 @@ export interface ListEnrolledCoursesResponse {
   total: number;
 }
 
+export interface CompleteOnboardingResponse extends EnrolledCourse {
+  /** Whether the learner answered the placement question correctly. */
+  placementCorrect: boolean;
+}
+
 export interface ModuleListItem {
   id: string;
   phase: PhaseLevel;
@@ -180,6 +185,15 @@ export interface PlacementQuestionResponse {
   options: PlacementQuestionOptions;
   codeSnippet: string | null;
   codeLanguage: string | null;
+}
+
+export const CheckPlacementAnswerRequestSchema = z.object({
+  answer: z.enum(["a", "b", "c", "d"]),
+});
+export type CheckPlacementAnswerRequest = z.infer<typeof CheckPlacementAnswerRequestSchema>;
+
+export interface CheckPlacementAnswerResponse {
+  correct: boolean;
 }
 
 export interface SkillResponse {

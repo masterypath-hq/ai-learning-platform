@@ -8,11 +8,16 @@ import type { ISkillRepository } from "../interfaces/ISkillRepository.js";
 import type { IUserSkillConfidenceRepository, SkillConfidenceRating } from "../interfaces/IUserSkillConfidenceRepository.js";
 import type { IPlacementAnswerRepository } from "../interfaces/IPlacementAnswerRepository.js";
 import type { ICourseContentWriter } from "../interfaces/ICourseContentWriter.js";
+import type { ICourseGenerationWriter } from "../interfaces/ICourseGenerationWriter.js";
 import type { ICourseService } from "../interfaces/ICourseService.js";
 import { mapLessonToResponse, mapModuleToResponse } from "../mappers/courseResponseMappers.js";
 import type {
+  CompleteOnboardingResponse,
+  CourseOutlineResponse,
   CourseResponse,
   EnrolledCourse,
+  GenerationModuleStatus,
+  GenerationStatusResponse,
   LessonWithContextResponse,
   ListTrackCoursesResponse,
   ListEnrolledCoursesResponse,
@@ -20,6 +25,7 @@ import type {
   ListTracksResponse,
   ModuleWithContextResponse,
   PersistCourseContentRequest,
+  PersistLesson,
   PhaseLevel,
   PlacementQuestionResponse,
   SelfAssessmentLevel,
@@ -44,7 +50,8 @@ export class CourseService implements ICourseService {
     private readonly skillRepo: ISkillRepository,
     private readonly userSkillConfidenceRepo: IUserSkillConfidenceRepository,
     private readonly placementAnswerRepo: IPlacementAnswerRepository,
-    private readonly courseContentWriter: ICourseContentWriter
+    private readonly courseContentWriter: ICourseContentWriter,
+    private readonly courseGenerationWriter: ICourseGenerationWriter
   ) {}
 
   async getCourse(courseId: string): Promise<CourseResponse> {
@@ -108,6 +115,12 @@ export class CourseService implements ICourseService {
     };
   }
 
+  async checkPlacementAnswer(questionId: string, answer: string): Promise<boolean> {
+    const question = await this.placementQuestionRepo.findById(questionId);
+    if (!question) throw new Error("QUESTION_NOT_FOUND");
+    return answer === question.correctOption;
+  }
+
   async enrollCourse(courseId: string, userId: string): Promise<EnrolledCourse> {
     const course = await this.courseRepo.findById(courseId);
     if (!course) throw new Error("COURSE_NOT_FOUND");
@@ -122,7 +135,7 @@ export class CourseService implements ICourseService {
     answer: string,
     confidenceRatings: SkillConfidenceRating[],
     goal?: string | null
-  ): Promise<EnrolledCourse> {
+  ): Promise<CompleteOnboardingResponse> {
     const course = await this.courseRepo.findById(courseId);
     if (!course) throw new Error("COURSE_NOT_FOUND");
 
@@ -138,13 +151,47 @@ export class CourseService implements ICourseService {
       await this.userSkillConfidenceRepo.upsertMany(userId, confidenceRatings);
     }
 
-    return this.enrollmentRepo.create(course.id, userId, phase, selfAssessedLevel, goal);
+    const enrollment = await this.enrollmentRepo.create(course.id, userId, phase, selfAssessedLevel, goal);
+    return { ...enrollment, placementCorrect: isCorrect };
   }
 
   async persistGeneratedContent(courseId: string, content: PersistCourseContentRequest): Promise<void> {
     const course = await this.courseRepo.findById(courseId);
     if (!course) throw new Error("COURSE_NOT_FOUND");
     await this.courseContentWriter.replaceContent(courseId, content);
+  }
+
+  async getGenerationStatus(courseId: string): Promise<GenerationStatusResponse> {
+    const course = await this.courseRepo.findById(courseId);
+    if (!course) throw new Error("COURSE_NOT_FOUND");
+    const status = await this.courseGenerationWriter.getStatus(courseId);
+    const response = course.toResponse();
+    return {
+      courseId,
+      slug: response.slug,
+      title: response.title,
+      hasOutline: status.hasOutline,
+      isFullyGenerated: status.isFullyGenerated,
+      modules: status.modules,
+    };
+  }
+
+  async persistGenerationOutline(courseId: string, outline: CourseOutlineResponse): Promise<GenerationModuleStatus[]> {
+    const course = await this.courseRepo.findById(courseId);
+    if (!course) throw new Error("COURSE_NOT_FOUND");
+    return this.courseGenerationWriter.persistOutline(courseId, outline);
+  }
+
+  async persistGenerationModuleLessons(courseId: string, moduleId: string, lessons: PersistLesson[]): Promise<void> {
+    const course = await this.courseRepo.findById(courseId);
+    if (!course) throw new Error("COURSE_NOT_FOUND");
+    await this.courseGenerationWriter.persistModuleLessons(courseId, moduleId, lessons);
+  }
+
+  async clearGeneratedContent(courseId: string): Promise<void> {
+    const course = await this.courseRepo.findById(courseId);
+    if (!course) throw new Error("COURSE_NOT_FOUND");
+    await this.courseGenerationWriter.clearGeneratedContent(courseId);
   }
 
   async getLessonById(lessonId: string): Promise<LessonWithContextResponse> {

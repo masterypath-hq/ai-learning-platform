@@ -15,6 +15,8 @@ import { ListChatSessionsAction } from "./application/actions/ListChatSessionsAc
 import { ListChatMessagesAction } from "./application/actions/ListChatMessagesAction.js";
 import { RedisProgressEventPublisher } from "./infrastructure/redis/RedisProgressEventPublisher.js";
 import { GenerateCourseContentAction } from "./application/actions/GenerateCourseContentAction.js";
+import { GenerateCourseOutlineAction } from "./application/actions/GenerateCourseOutlineAction.js";
+import { GenerateModuleLessonsAction } from "./application/actions/GenerateModuleLessonsAction.js";
 import { GenerateQuizAction } from "./application/actions/GenerateQuizAction.js";
 import { GradeShortAnswersAction } from "./application/actions/GradeShortAnswersAction.js";
 import { createAuthMiddleware } from "./interfaces/http/middleware/authMiddleware.js";
@@ -86,7 +88,13 @@ export async function createCompositionRoot() {
 
   const courseContentGenerator = new ClaudeCourseContentGenerator(anthropicClient);
   const generateCourseContentAction = new GenerateCourseContentAction(courseContentGenerator);
-  const courseGenController = new CourseGenController(generateCourseContentAction);
+  const generateCourseOutlineAction = new GenerateCourseOutlineAction(courseContentGenerator);
+  const generateModuleLessonsAction = new GenerateModuleLessonsAction(courseContentGenerator);
+  const courseGenController = new CourseGenController(
+    generateCourseContentAction,
+    generateCourseOutlineAction,
+    generateModuleLessonsAction
+  );
   const internalServiceMiddleware = createInternalServiceMiddleware(internalServiceSecret);
 
   const quizGenerator = new ClaudeQuizGenerator(anthropicClient);

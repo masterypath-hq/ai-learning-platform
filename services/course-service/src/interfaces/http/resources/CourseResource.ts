@@ -47,6 +47,10 @@ export class CourseResource {
       this.wrapAsync((req, res) => this.controller.getPlacementQuestion(req, res))
     );
     this.app.post(
+      "/api/v1/courses/placement-questions/:questionId/check",
+      this.wrapAsync((req, res) => this.controller.checkPlacementAnswer(req, res))
+    );
+    this.app.post(
       "/api/v1/courses/:id/onboarding",
       this.authMiddleware,
       this.wrapAsync((req, res) => this.controller.completeOnboarding(req, res))
@@ -75,6 +79,26 @@ export class CourseResource {
       "/api/v1/internal/enrollments/:userId",
       this.internalServiceMiddleware,
       this.wrapAsync((req, res) => this.controller.listEnrollmentsInternal(req, res))
+    );
+    this.app.get(
+      "/api/v1/courses/:id/generation/status",
+      this.internalServiceMiddleware,
+      this.wrapAsync((req, res) => this.controller.getGenerationStatus(req, res))
+    );
+    this.app.post(
+      "/api/v1/courses/:id/generation/outline",
+      this.internalServiceMiddleware,
+      this.wrapAsync((req, res) => this.controller.persistGenerationOutline(req, res))
+    );
+    this.app.post(
+      "/api/v1/courses/:id/generation/modules/:moduleId/lessons",
+      this.internalServiceMiddleware,
+      this.wrapAsync((req, res) => this.controller.persistGenerationModuleLessons(req, res))
+    );
+    this.app.delete(
+      "/api/v1/courses/:id/generation",
+      this.internalServiceMiddleware,
+      this.wrapAsync((req, res) => this.controller.clearGeneratedContent(req, res))
     );
   }
 
