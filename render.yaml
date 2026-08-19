@@ -1,11 +1,14 @@
-# Render Blueprint — Phase 1: Redis + auth-service + gateway
-# Phase 2/3 (course, ai) are commented at the bottom — uncomment when ready.
+# Render Blueprint — full backend (Redis + all 7 services).
 #
-# Setup: Render Dashboard → New → Blueprint → connect repo.
-# If repo root is not this folder, set Root Directory → ai-learning-platform
+# Setup: Render Dashboard → New → Blueprint → connect repo → it reads this file.
+# After the first sync, edit each service in the Render dashboard to fill in
+# the `sync: false` secrets (they are intentionally left out of this file).
+#
+# masterypath-redis, masterypath-auth, masterypath-gateway already existed
+# (Phase 1) and are live. This adds course, ai, progress, assessment, websocket.
 
 services:
-  # ── Redis (required for auth + gateway rate limits) ─────────────────────
+  # ── Redis (rate limits, sessions, pub/sub streaming) ─────────────────────
   - type: keyvalue
     name: masterypath-redis
     plan: free
@@ -58,7 +61,154 @@ services:
           type: web
           envVarKey: RENDER_EXTERNAL_URL
 
-  # ── API gateway (public entry — clients call /api/auth/* here) ───────────
+  # ── Course service ─────────────────────────────────────────────────────
+  - type: web
+    name: masterypath-course
+    runtime: docker
+    dockerfilePath: ./services/course-service/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "3003"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: INTERNAL_SERVICE_SECRET
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: masterypath-redis
+          type: keyvalue
+          property: connectionString
+
+  # ── AI tutor service (chat + course/quiz generation) ──────────────────────
+  - type: web
+    name: masterypath-ai
+    runtime: docker
+    dockerfilePath: ./services/ai-service/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "5002"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: INTERNAL_SERVICE_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: masterypath-redis
+          type: keyvalue
+          property: connectionString
+      - key: COURSE_SERVICE_URL
+        fromService:
+          name: masterypath-course
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  # ── Progress service (dashboard, streaks, badges) ─────────────────────────
+  - type: web
+    name: masterypath-progress
+    runtime: docker
+    dockerfilePath: ./services/progress-service/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "5004"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: INTERNAL_SERVICE_SECRET
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: masterypath-redis
+          type: keyvalue
+          property: connectionString
+      - key: COURSE_SERVICE_URL
+        fromService:
+          name: masterypath-course
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: ASSESSMENT_SERVICE_URL
+        fromService:
+          name: masterypath-assessment
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  # ── Assessment service (knowledge checks, quizzes, grading) ───────────────
+  - type: web
+    name: masterypath-assessment
+    runtime: docker
+    dockerfilePath: ./services/assessment-service/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "5005"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: INTERNAL_SERVICE_SECRET
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: masterypath-redis
+          type: keyvalue
+          property: connectionString
+      - key: AI_SERVICE_URL
+        fromService:
+          name: masterypath-ai
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  # ── Websocket service (AI token streaming — clients connect directly) ─────
+  - type: web
+    name: masterypath-websocket
+    runtime: docker
+    dockerfilePath: ./services/websocket/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "4001"
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: masterypath-redis
+          type: keyvalue
+          property: connectionString
+      # Socket.io CORS is locked to this exact origin — set to the Vercel
+      # frontend URL once it's deployed (see README / setup notes).
+      - key: FRONTEND_URL
+        sync: false
+
+  # ── API gateway (public entry — the only backend URL the frontend calls) ──
   - type: web
     name: masterypath-gateway
     runtime: docker
@@ -83,64 +233,34 @@ services:
           name: masterypath-auth
           type: web
           envVarKey: RENDER_EXTERNAL_URL
+      - key: COURSE_SERVICE_URL
+        fromService:
+          name: masterypath-course
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: AI_SERVICE_URL
+        fromService:
+          name: masterypath-ai
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: PROGRESS_SERVICE_URL
+        fromService:
+          name: masterypath-progress
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: ASSESSMENT_SERVICE_URL
+        fromService:
+          name: masterypath-assessment
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: WEBSOCKET_URL
+        fromService:
+          name: masterypath-websocket
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      # Used only to build the password-reset link redirect — set to the
+      # Vercel frontend URL once it's deployed.
       - key: FRONTEND_URL
         sync: false
       - key: FRONTEND_RESET_PASSWORD_PATH
         value: /reset-password
-
-# ── Phase 2 — Course service (uncomment when ready) ───────────────────────
-#  - type: web
-#    name: masterypath-course
-#    runtime: docker
-#    dockerfilePath: ./services/course-service/Dockerfile
-#    dockerContext: .
-#    plan: free
-#    healthCheckPath: /health
-#    envVars:
-#      - key: PORT
-#        value: "3003"
-#      - key: NODE_ENV
-#        value: production
-#      - key: DATABASE_URL
-#        sync: false
-#      - key: JWT_SECRET
-#        sync: false
-#      - key: ANTHROPIC_API_KEY
-#        sync: false
-#
-# Then add to masterypath-gateway envVars:
-#      - key: COURSE_SERVICE_URL
-#        fromService:
-#          name: masterypath-course
-#          type: web
-#          envVarKey: RENDER_EXTERNAL_URL
-
-# ── Phase 3 — AI tutor service (uncomment when ready) ─────────────────────
-#  - type: web
-#    name: masterypath-ai
-#    runtime: docker
-#    dockerfilePath: ./services/ai-service/Dockerfile
-#    dockerContext: .
-#    plan: free
-#    healthCheckPath: /health
-#    envVars:
-#      - key: PORT
-#        value: "5002"
-#      - key: NODE_ENV
-#        value: production
-#      - key: ANTHROPIC_API_KEY
-#        sync: false
-#      - key: COURSE_SERVICE_URL
-#        fromService:
-#          name: masterypath-course
-#          type: web
-#          envVarKey: RENDER_EXTERNAL_URL
-#
-# Then add to masterypath-gateway envVars:
-#      - key: AI_SERVICE_URL
-#        fromService:
-#          name: masterypath-ai
-#          type: web
-#          envVarKey: RENDER_EXTERNAL_URL
-#      - key: AI_PROXY_TIMEOUT_MS
-#        value: "120000"
