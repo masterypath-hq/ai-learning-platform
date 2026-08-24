@@ -3,15 +3,23 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, CheckCircle2, Circle, Clock, ClipboardCheck, Sparkles } from "lucide-react";
-import type { ModuleResponse } from "@ai-learning-platform/shared";
-import { useCourse, useMyCourses, useMarkLessonViewed } from "@/lib/queries/courses";
-import { useCourseProgress } from "@/lib/queries/progress";
-import { useStartQuizAttempt, CooldownActiveError } from "@/lib/queries/quizzes";
+import { ChevronDown, CheckCircle2, Circle, Clock, ClipboardCheck, Lock, Sparkles } from "lucide-react";
+import type { ModuleResponse, PhaseLevel } from "@ai-learning-platform/shared";
+import { useCourse, useMyCourses } from "@/lib/queries/courses";
+import { useCourseProgress, useModuleStatus } from "@/lib/queries/progress";
+import { useStartQuizAttempt, useRecordKnowledgeCheckCompletion, CooldownActiveError } from "@/lib/queries/quizzes";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Loader } from "@/components/Loader";
 import { KnowledgeCheck } from "@/components/KnowledgeCheck";
+
+const PHASE_ORDER: PhaseLevel[] = ["foundation", "intermediate", "advanced", "mastery"];
+const PHASE_LABELS: Record<PhaseLevel, string> = {
+  foundation: "Foundation",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+  mastery: "Mastery",
+};
 
 /** True if every module key concept matches something the learner already rated confident/used_it on. */
 function likelyKnowsModule(mod: ModuleResponse, priorExperienceSkillNames: string[]): boolean {
@@ -28,21 +36,25 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
   const router = useRouter();
   const { data: course, isLoading } = useCourse(id);
   const { data: progress } = useCourseProgress(id);
+  const { data: moduleStatuses } = useModuleStatus(id);
   const { data: myCourses } = useMyCourses();
   const startAttempt = useStartQuizAttempt();
-  const markViewed = useMarkLessonViewed();
+  const recordCompletion = useRecordKnowledgeCheckCompletion();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [quizError, setQuizError] = useState<string | null>(null);
   const [skipChallengeModuleId, setSkipChallengeModuleId] = useState<string | null>(null);
   const [skippedModuleIds, setSkippedModuleIds] = useState<Set<string>>(new Set());
 
-  const completedIds = new Set(progress?.completedLessons.map((l) => l.id) ?? []);
   const priorExperienceSkillNames = myCourses?.courses.find((c) => c.courseId === id)?.priorExperienceSkillNames ?? [];
 
   async function handlePassedSkipChallenge(mod: ModuleResponse) {
     setSkippedModuleIds((prev) => new Set(prev).add(mod.id));
     setSkipChallengeModuleId(null);
-    await Promise.all(mod.lessons.map((lesson) => markViewed.mutateAsync({ courseId: id, lessonId: lesson.id })));
+    // Passing the skip-ahead challenge counts as passing every lesson's knowledge check in this
+    // module — the same signal a normal lesson-by-lesson pass would record.
+    await Promise.all(
+      mod.lessons.map((lesson) => recordCompletion.mutateAsync({ courseId: id, moduleId: mod.id, lessonId: lesson.id }))
+    );
   }
 
   async function handleStartModuleQuiz(moduleId: string) {
@@ -91,94 +103,123 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
 
       {quizError ? <p className="mt-4 text-sm text-danger">{quizError}</p> : null}
 
-      <div className="mt-6 flex flex-col gap-3">
-        {course.modules.map((mod) => {
-          const isOpen = expanded === mod.id;
-          const likelyKnown = likelyKnowsModule(mod, priorExperienceSkillNames) && !skippedModuleIds.has(mod.id);
-          const showingSkipChallenge = skipChallengeModuleId === mod.id;
+      <div className="mt-6 flex flex-col gap-6">
+        {PHASE_ORDER.map((phase) => {
+          const modulesInPhase = course.modules.filter((m) => m.phase === phase).sort((a, b) => a.orderIndex - b.orderIndex);
+          if (modulesInPhase.length === 0) return null;
           return (
-            <Card key={mod.id} className="p-0">
-              <button
-                onClick={() => setExpanded(isOpen ? null : mod.id)}
-                className="flex w-full items-center justify-between px-5 py-4 text-left"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium">{mod.title}</p>
-                    {likelyKnown ? (
-                      <span className="flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--accent)]">
-                        <Sparkles className="h-3 w-3" /> You likely know this
-                      </span>
-                    ) : null}
-                  </div>
-                  {mod.description ? <p className="mt-0.5 text-sm text-muted">{mod.description}</p> : null}
-                </div>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`} />
-              </button>
+            <div key={phase}>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-2">{PHASE_LABELS[phase]}</p>
+              <div className="flex flex-col gap-3">
+                {modulesInPhase.map((mod) => {
+                  const status = moduleStatuses?.find((s) => s.moduleId === mod.id);
+                  const locked = status?.locked ?? false;
+                  const lessonStatusById = new Map((status?.lessons ?? []).map((l) => [l.id, l]));
+                  const isOpen = expanded === mod.id && !locked;
+                  const likelyKnown = likelyKnowsModule(mod, priorExperienceSkillNames) && !skippedModuleIds.has(mod.id);
+                  const showingSkipChallenge = skipChallengeModuleId === mod.id;
+                  return (
+                    <Card key={mod.id} className={`p-0 ${locked ? "opacity-50" : ""}`}>
+                      <button
+                        onClick={() => !locked && setExpanded(isOpen ? null : mod.id)}
+                        disabled={locked}
+                        className="flex w-full items-center justify-between px-5 py-4 text-left disabled:cursor-not-allowed"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{mod.title}</p>
+                            {likelyKnown ? (
+                              <span className="flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--accent)]">
+                                <Sparkles className="h-3 w-3" /> You likely know this
+                              </span>
+                            ) : null}
+                          </div>
+                          {mod.description ? <p className="mt-0.5 text-sm text-muted">{mod.description}</p> : null}
+                        </div>
+                        {locked ? (
+                          <Lock className="h-4 w-4 shrink-0 text-muted-2" />
+                        ) : (
+                          <ChevronDown className={`h-4 w-4 shrink-0 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                        )}
+                      </button>
 
-              {isOpen ? (
-                <div className="border-t border-border px-5 py-4">
-                  {likelyKnown ? (
-                    <div className="mb-4 rounded-lg border border-dashed border-border-strong p-4">
-                      {showingSkipChallenge ? (
-                        <KnowledgeCheck
-                          courseId={id}
-                          moduleId={mod.id}
-                          lessonId={mod.lessons[0]?.id ?? ""}
-                          onPassed={() => handlePassedSkipChallenge(mod)}
-                        />
-                      ) : (
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm text-muted">
-                            Your onboarding ratings suggest you already know this — skim the lessons below, or take a
-                            quick challenge to skip ahead.
-                          </p>
+                      {isOpen ? (
+                        <div className="border-t border-border px-5 py-4">
+                          {likelyKnown ? (
+                            <div className="mb-4 rounded-lg border border-dashed border-border-strong p-4">
+                              {showingSkipChallenge ? (
+                                <KnowledgeCheck
+                                  courseId={id}
+                                  moduleId={mod.id}
+                                  lessonId={mod.lessons[0]?.id ?? ""}
+                                  onPassed={() => handlePassedSkipChallenge(mod)}
+                                />
+                              ) : (
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-sm text-muted">
+                                    Your onboarding ratings suggest you already know this — skim the lessons below, or
+                                    take a quick challenge to skip ahead.
+                                  </p>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="shrink-0"
+                                    disabled={mod.lessons.length === 0}
+                                    onClick={() => setSkipChallengeModuleId(mod.id)}
+                                  >
+                                    Take challenge
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
+                          <ul className="flex flex-col gap-1">
+                            {mod.lessons.map((lesson) => {
+                              const lessonStatus = lessonStatusById.get(lesson.id);
+                              const done = lessonStatus?.completed ?? false;
+                              const lessonLocked = lessonStatus?.locked ?? false;
+                              return (
+                                <li key={lesson.id}>
+                                  {lessonLocked ? (
+                                    <div className="flex cursor-not-allowed items-center gap-2 rounded-lg px-2 py-2 text-sm opacity-50">
+                                      <Lock className="h-4 w-4 shrink-0 text-muted-2" />
+                                      <span>{lesson.title}</span>
+                                    </div>
+                                  ) : (
+                                    <Link
+                                      href={`/courses/${id}/lessons/${lesson.id}`}
+                                      className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-hover"
+                                    >
+                                      {done ? (
+                                        <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                                      ) : (
+                                        <Circle className="h-4 w-4 shrink-0 text-muted-2" />
+                                      )}
+                                      <span className={done ? "text-muted" : ""}>{lesson.title}</span>
+                                    </Link>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
                           <Button
                             variant="secondary"
                             size="sm"
-                            className="shrink-0"
-                            disabled={mod.lessons.length === 0}
-                            onClick={() => setSkipChallengeModuleId(mod.id)}
+                            className="mt-3"
+                            disabled={locked}
+                            isLoading={startAttempt.isPending}
+                            onClick={() => handleStartModuleQuiz(mod.id)}
                           >
-                            Take challenge
+                            <ClipboardCheck className="h-4 w-4" />
+                            Take module quiz
                           </Button>
                         </div>
-                      )}
-                    </div>
-                  ) : null}
-                  <ul className="flex flex-col gap-1">
-                    {mod.lessons.map((lesson) => {
-                      const done = completedIds.has(lesson.id);
-                      return (
-                        <li key={lesson.id}>
-                          <Link
-                            href={`/courses/${id}/lessons/${lesson.id}`}
-                            className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-hover"
-                          >
-                            {done ? (
-                              <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                            ) : (
-                              <Circle className="h-4 w-4 shrink-0 text-muted-2" />
-                            )}
-                            <span className={done ? "text-muted" : ""}>{lesson.title}</span>
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-3"
-                    isLoading={startAttempt.isPending}
-                    onClick={() => handleStartModuleQuiz(mod.id)}
-                  >
-                    <ClipboardCheck className="h-4 w-4" />
-                    Take module quiz
-                  </Button>
-                </div>
-              ) : null}
-            </Card>
+                      ) : null}
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </div>

@@ -9,16 +9,13 @@ export type ChatSubjectArea = z.infer<typeof ChatSubjectAreaSchema>;
 export const ChatMessageRoleSchema = z.enum(["user", "assistant"]);
 export type ChatMessageRole = z.infer<typeof ChatMessageRoleSchema>;
 
+/**
+ * Every session is now created for one specific lesson — the server derives subjectArea/track/
+ * topic/learnerProfile from it (see CreateChatSessionAction) instead of accepting them from the
+ * client, so a chat session can never be created disconnected from real course content.
+ */
 export const CreateChatSessionRequestSchema = z.object({
-  subjectArea: ChatSubjectAreaSchema,
-  track: z.string(),
-  topic: z.string().optional(),
-  /**
-   * Optional freeform hint (e.g. "experienced mobile developer, new to Kotlin") used by the
-   * mobile second-platform accelerator so the tutor adapts immediately instead of waiting to
-   * infer level from the conversation. Not tracked as a strict enum — see tutor.ts.
-   */
-  learnerProfile: z.string().optional(),
+  lessonId: z.string().uuid(),
 });
 export type CreateChatSessionRequest = z.infer<typeof CreateChatSessionRequestSchema>;
 
@@ -29,6 +26,8 @@ export const ChatSessionSchema = z.object({
   track: z.string(),
   topic: z.string().nullable(),
   learnerProfile: z.string().nullable(),
+  /** Null only for sessions created before lesson-scoping shipped. */
+  lessonId: z.string().nullable(),
   summary: z.string().nullable(),
   suggestedNextQuestions: z.array(z.string()),
   createdAt: z.string(),

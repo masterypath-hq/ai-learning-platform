@@ -116,3 +116,36 @@ export const CourseProgressDetailSchema = z.object({
   estimatedMinutesRemaining: z.number().min(0),
 });
 export type CourseProgressDetail = z.infer<typeof CourseProgressDetailSchema>;
+
+/** Mirrors course-contracts.ts's PhaseLevel — kept local per this file's self-contained convention. */
+export const ModulePhaseSchema = z.enum(["foundation", "intermediate", "advanced", "mastery"]);
+export type ModulePhase = z.infer<typeof ModulePhaseSchema>;
+
+export const LessonStatusItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  orderIndex: z.number().int(),
+  /** True once this lesson's knowledge check has been passed — not merely opened. */
+  completed: z.boolean(),
+  /** True until the previous lesson in this module is completed (or the module itself is locked). */
+  locked: z.boolean(),
+});
+export type LessonStatusItem = z.infer<typeof LessonStatusItemSchema>;
+
+/**
+ * Sequential module/lesson unlock state for one course enrollment — the source of truth the
+ * dashboard and course page render locked/greyed cards from. A module is `completed` only once
+ * all its lessons are viewed AND its quiz is passed; the next module/lesson stays `locked` until
+ * then. The first module overall is never locked.
+ */
+export const ModuleStatusResponseSchema = z.object({
+  moduleId: z.string(),
+  phase: ModulePhaseSchema,
+  title: z.string(),
+  orderIndex: z.number().int(),
+  lessons: z.array(LessonStatusItemSchema),
+  quizPassed: z.boolean(),
+  completed: z.boolean(),
+  locked: z.boolean(),
+});
+export type ModuleStatusResponse = z.infer<typeof ModuleStatusResponseSchema>;

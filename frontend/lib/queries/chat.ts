@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ChatSession, ChatMessage, ChatSubjectArea } from "@ai-learning-platform/shared";
+import type { ChatSession, ChatMessage } from "@ai-learning-platform/shared";
 import { apiFetch } from "../api-client";
 
 interface Envelope<T> {
@@ -23,10 +23,11 @@ export function useChatMessages(sessionId: string | undefined) {
   });
 }
 
+/** Idempotent: the server resumes the lesson's still-open session instead of duplicating it. */
 export function useCreateChatSession() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { subjectArea: ChatSubjectArea; track: string; topic?: string; learnerProfile?: string }) =>
+    mutationFn: (input: { lessonId: string }) =>
       apiFetch<Envelope<ChatSession>>("/api/ai/chat/sessions", { method: "POST", body: input }).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
@@ -38,6 +39,15 @@ export interface SendChatMessageResult {
   message: ChatMessage;
   remaining: number | null;
   limit: number | null;
+}
+
+/** Triggers the tutor's opening message for a freshly created/resumed session with no messages
+ *  yet. Fire-and-forget — the reply streams over the socket like any other assistant turn. */
+export function useStartLessonConversation() {
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      apiFetch<Envelope<null>>(`/api/ai/chat/sessions/${sessionId}/start`, { method: "POST" }),
+  });
 }
 
 export function useSendChatMessage() {
