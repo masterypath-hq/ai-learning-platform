@@ -131,7 +131,7 @@ describe("CourseService.completeOnboarding", () => {
 
     expect(callOrder).toEqual(["record", "upsertMany", "create"]);
     expect(enrollmentRepo.create).toHaveBeenCalledWith("course-1", "user-1", "intermediate", "advanced", "become a pentester");
-    expect(result).toBe(expectedEnrollment);
+    expect(result).toEqual({ ...expectedEnrollment, placementCorrect: true });
   });
 
   it("does not call upsertMany when there are no confidence ratings", async () => {
