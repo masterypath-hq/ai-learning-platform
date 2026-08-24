@@ -81,9 +81,14 @@ async function callClaude(
   throw new Error("Retry loop exited without returning or throwing");
 }
 
+// JSON-validation-repair retry, separate from the transient-error retry inside callClaude:
+// covers Claude returning well-formed JSON that violates the schema (e.g. an array exceeding
+// its max length despite the prompt stating the bound). 3 attempts = 1 initial try + 2 repairs.
+const MAX_VALIDATION_ATTEMPTS = 3;
+
 /**
- * Calls Claude, validates the JSON response against `schema`, and retries once with the
- * validation errors appended to the prompt if the first attempt fails to parse or validate.
+ * Calls Claude, validates the JSON response against `schema`, and retries with the validation
+ * errors appended to the prompt each time the response fails to parse or validate.
  * Each underlying call also retries transient API errors (429/5xx/connection) with backoff.
  * Returns cumulative token usage across every call made, for cost logging.
  */
@@ -94,23 +99,26 @@ export async function generateValidatedJson<T>(
   user: string,
   schema: ZodType<T>
 ): Promise<{ data: T; usage: ClaudeUsage }> {
-  const first = await callClaude(client, maxTokens, system, user);
-  const firstResult = parseAndValidate(first.text, schema);
-  if (firstResult.data !== null) return { data: firstResult.data, usage: first.usage };
+  const usage: ClaudeUsage = { inputTokens: 0, outputTokens: 0 };
+  let currentUser = user;
+  let lastError: string | null = null;
 
-  const retryUser = `${user}
+  for (let attempt = 1; attempt <= MAX_VALIDATION_ATTEMPTS; attempt++) {
+    const response = await callClaude(client, maxTokens, system, currentUser);
+    usage.inputTokens += response.usage.inputTokens;
+    usage.outputTokens += response.usage.outputTokens;
+
+    const result = parseAndValidate(response.text, schema);
+    if (result.data !== null) return { data: result.data, usage };
+
+    lastError = result.error;
+    currentUser = `${user}
 
 Your previous response failed validation with these errors:
-${firstResult.error}
+${result.error}
 
 Return ONLY the corrected JSON, following the exact structure described above.`;
-  const second = await callClaude(client, maxTokens, system, retryUser);
-  const secondResult = parseAndValidate(second.text, schema);
-  const usage: ClaudeUsage = {
-    inputTokens: first.usage.inputTokens + second.usage.inputTokens,
-    outputTokens: first.usage.outputTokens + second.usage.outputTokens,
-  };
-  if (secondResult.data !== null) return { data: secondResult.data, usage };
+  }
 
-  throw new Error(`Generation failed validation after retry: ${secondResult.error}`);
+  throw new Error(`Generation failed validation after ${MAX_VALIDATION_ATTEMPTS} attempts: ${lastError}`);
 }

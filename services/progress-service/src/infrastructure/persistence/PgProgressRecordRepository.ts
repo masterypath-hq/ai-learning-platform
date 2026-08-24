@@ -28,11 +28,13 @@ export class PgProgressRecordRepository implements IProgressRecordRepository {
   constructor(private readonly pool: Pool) {}
 
   async record(event: ProgressEvent): Promise<void> {
+    // No explicit conflict target: this table carries two partial unique indexes (lesson_viewed,
+    // module_completed) and a bare DO NOTHING suppresses a violation against either, without
+    // needing to know which one a given activity_type maps to.
     await this.pool.query(
       `INSERT INTO progress_records (user_id, course_id, module_id, lesson_id, activity_type, occurred_at)
        VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (user_id, lesson_id) WHERE activity_type = 'lesson_viewed' AND lesson_id IS NOT NULL
-       DO NOTHING`,
+       ON CONFLICT DO NOTHING`,
       [event.userId, event.courseId, event.moduleId, event.lessonId, event.activityType, event.occurredAt]
     );
   }
@@ -53,6 +55,24 @@ export class PgProgressRecordRepository implements IProgressRecordRepository {
       [userId, courseId]
     );
     return result.rows.map((r) => r.lesson_id);
+  }
+
+  async findKnowledgeCheckPassedLessonIds(userId: string, courseId: string): Promise<string[]> {
+    const result = await this.pool.query<{ lesson_id: string }>(
+      `SELECT DISTINCT lesson_id FROM progress_records
+       WHERE user_id = $1 AND course_id = $2 AND activity_type = 'knowledge_check_completed' AND lesson_id IS NOT NULL`,
+      [userId, courseId]
+    );
+    return result.rows.map((r) => r.lesson_id);
+  }
+
+  async findCompletedModuleIds(userId: string, courseId: string): Promise<string[]> {
+    const result = await this.pool.query<{ module_id: string }>(
+      `SELECT DISTINCT module_id FROM progress_records
+       WHERE user_id = $1 AND course_id = $2 AND activity_type = 'module_completed' AND module_id IS NOT NULL`,
+      [userId, courseId]
+    );
+    return result.rows.map((r) => r.module_id);
   }
 
   async hasActivityType(userId: string, activityType: ProgressActivityType): Promise<boolean> {

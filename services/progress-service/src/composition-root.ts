@@ -8,6 +8,7 @@ import { ProgressEventSubscriber } from "./infrastructure/redis/ProgressEventSub
 import { RecordProgressEventAction } from "./application/actions/RecordProgressEventAction.js";
 import { GetDashboardAction } from "./application/actions/GetDashboardAction.js";
 import { GetCourseProgressAction } from "./application/actions/GetCourseProgressAction.js";
+import { GetModuleStatusAction } from "./application/actions/GetModuleStatusAction.js";
 import { createAuthMiddleware } from "./interfaces/http/middleware/authMiddleware.js";
 import { ProgressController } from "./interfaces/http/controllers/ProgressController.js";
 import { App } from "./interfaces/http/app.js";
@@ -46,8 +47,9 @@ export async function createCompositionRoot() {
     assessmentServiceClient
   );
   const getCourseProgressAction = new GetCourseProgressAction(progressRecordRepo, courseServiceClient);
+  const getModuleStatusAction = new GetModuleStatusAction(progressRecordRepo, courseServiceClient);
 
-  const progressController = new ProgressController(getDashboardAction, getCourseProgressAction);
+  const progressController = new ProgressController(getDashboardAction, getCourseProgressAction, getModuleStatusAction);
   const jwtSecret = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
   const authMiddleware = createAuthMiddleware(jwtSecret);
 

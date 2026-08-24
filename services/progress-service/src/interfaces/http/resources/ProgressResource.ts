@@ -21,6 +21,11 @@ export class ProgressResource {
       this.authMiddleware,
       this.wrapAsync((req, res) => this.controller.getCourseProgress(req, res))
     );
+    this.app.get(
+      "/courses/:id/module-status",
+      this.authMiddleware,
+      this.wrapAsync((req, res) => this.controller.getModuleStatus(req, res))
+    );
   }
 
   private wrapAsync(handler: AsyncHandler) {

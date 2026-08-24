@@ -45,6 +45,51 @@ describe("buildTutorSystemPrompt", () => {
     const prompt = buildTutorSystemPrompt("programming", "python", null);
     expect(prompt).not.toMatch(/signed scope/i);
   });
+
+  it("teaches the lesson content and states its key takeaways when a lessonSnapshot is given", () => {
+    const prompt = buildTutorSystemPrompt("programming", "cybersecurity", "Reflected XSS", null, {
+      title: "Reflected XSS",
+      explanationContent: "XSS happens when untrusted input is reflected into the page.",
+      keyTakeaways: ["Sanitize input", "Encode output"],
+      workedExampleTitles: ["Reflect a payload"],
+    });
+
+    expect(prompt).toContain('Current lesson: "Reflected XSS"');
+    expect(prompt).toContain("Sanitize input; Encode output");
+    expect(prompt).toContain("Reflect a payload");
+    expect(prompt).toContain("XSS happens when untrusted input is reflected into the page.");
+  });
+
+  it("instructs the model to redirect off-topic questions back to the current lesson", () => {
+    const prompt = buildTutorSystemPrompt("programming", "cybersecurity", "Reflected XSS", null, {
+      title: "Reflected XSS",
+      explanationContent: null,
+      keyTakeaways: [],
+      workedExampleTitles: [],
+    });
+
+    expect(prompt).toMatch(/stay in scope/i);
+    expect(prompt).toMatch(/redirect back to the current/i);
+  });
+
+  it("names the phase covering an upcoming topic when the curriculum snapshot is given", () => {
+    const prompt = buildTutorSystemPrompt(
+      "programming",
+      "cybersecurity",
+      "Reflected XSS",
+      null,
+      { title: "Reflected XSS", explanationContent: null, keyTakeaways: [], workedExampleTitles: [] },
+      [{ phase: "mastery", title: "AI-Era Security" }]
+    );
+
+    expect(prompt).toContain('"AI-Era Security" (mastery phase)');
+  });
+
+  it("omits the lesson and scope blocks entirely when no lessonSnapshot is given", () => {
+    const prompt = buildTutorSystemPrompt("programming", "cybersecurity", null);
+    expect(prompt).not.toMatch(/current lesson:/i);
+    expect(prompt).not.toMatch(/stay in scope/i);
+  });
 });
 
 describe("formatLearnerProfile", () => {
