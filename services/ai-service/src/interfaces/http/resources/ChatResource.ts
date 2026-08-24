@@ -27,6 +27,11 @@ export class ChatResource {
       this.wrapAsync((req, res) => this.controller.listMessages(req, res))
     );
     this.app.post(
+      "/chat/sessions/:id/start",
+      this.authMiddleware,
+      this.wrapAsync((req, res) => this.controller.startConversation(req, res))
+    );
+    this.app.post(
       "/chat/sessions/:id/messages",
       this.authMiddleware,
       this.wrapAsync((req, res) => this.controller.sendMessage(req, res))

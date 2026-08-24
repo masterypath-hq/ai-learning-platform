@@ -52,6 +52,10 @@ function makeProgressRecordRepo(overrides: Partial<IProgressRecordRepository> = 
     record: jest.fn<IProgressRecordRepository["record"]>(),
     countDistinctLessonsViewed: jest.fn<IProgressRecordRepository["countDistinctLessonsViewed"]>().mockResolvedValue(0),
     findViewedLessonIds: jest.fn<IProgressRecordRepository["findViewedLessonIds"]>().mockResolvedValue([]),
+    findKnowledgeCheckPassedLessonIds: jest
+      .fn<IProgressRecordRepository["findKnowledgeCheckPassedLessonIds"]>()
+      .mockResolvedValue([]),
+    findCompletedModuleIds: jest.fn<IProgressRecordRepository["findCompletedModuleIds"]>().mockResolvedValue([]),
     hasActivityType: jest.fn<IProgressRecordRepository["hasActivityType"]>().mockResolvedValue(false),
     hasCourseActivityType: jest.fn<IProgressRecordRepository["hasCourseActivityType"]>().mockResolvedValue(false),
     findMostRecentCourseId: jest.fn<IProgressRecordRepository["findMostRecentCourseId"]>().mockResolvedValue(null),

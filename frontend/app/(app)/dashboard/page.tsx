@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Flame, Award, ArrowRight, BookOpen, CheckCircle2, CircleDot, Circle, Sparkles, Clock3, Rocket } from "lucide-react";
-import type { BadgeId, ProgressRecord } from "@ai-learning-platform/shared";
+import { Flame, Award, ArrowRight, BookOpen, CheckCircle2, CircleDot, Circle, Lock, Sparkles, Clock3, Rocket } from "lucide-react";
+import type { BadgeId, ModuleStatusResponse, PhaseLevel, ProgressRecord } from "@ai-learning-platform/shared";
 import { findTrack } from "@ai-learning-platform/shared";
 import { useRouter } from "next/navigation";
-import { useDashboard, useCourseProgress } from "@/lib/queries/progress";
-import { useCourse, useEnrollInCourse } from "@/lib/queries/courses";
+import { useDashboard, useCourseProgress, useModuleStatus } from "@/lib/queries/progress";
+import { useEnrollInCourse } from "@/lib/queries/courses";
 import { useTracks } from "@/lib/queries/tracks";
-import { useCreateChatSession } from "@/lib/queries/chat";
 import { useAuthStore } from "@/lib/auth-store";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Badge";
@@ -32,17 +31,21 @@ const ACTIVITY_LABELS: Record<ProgressRecord["activityType"], string> = {
   chat_session_closed: "Wrapped up an AI tutor session",
 };
 
-/** mobile-android/mobile-ios only — the language name for the accelerator's tutor learnerProfile hint. */
-const MOBILE_LANGUAGE: Record<string, string> = { "mobile-android": "Kotlin", "mobile-ios": "Swift" };
+type ModuleStatus = "done" | "in_progress" | "not_started" | "locked";
 
-type ModuleStatus = "done" | "in_progress" | "not_started";
+const PHASE_ORDER: PhaseLevel[] = ["foundation", "intermediate", "advanced", "mastery"];
+const PHASE_LABELS: Record<PhaseLevel, string> = {
+  foundation: "Foundation",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+  mastery: "Mastery",
+};
 
-function moduleStatus(lessonIds: string[], completedIds: Set<string>): ModuleStatus {
-  if (lessonIds.length === 0) return "not_started";
-  const done = lessonIds.filter((id) => completedIds.has(id)).length;
-  if (done === 0) return "not_started";
-  if (done === lessonIds.length) return "done";
-  return "in_progress";
+function moduleStatus(mod: ModuleStatusResponse): ModuleStatus {
+  if (mod.locked) return "locked";
+  if (mod.completed) return "done";
+  if (mod.lessons.some((l) => l.completed)) return "in_progress";
+  return "not_started";
 }
 
 export default function DashboardPage() {
@@ -51,8 +54,8 @@ export default function DashboardPage() {
   const nextAction = data?.recommendedNextAction ?? null;
 
   const activeCourseId = (nextAction?.type === "continue" ? nextAction.courseId : undefined) ?? data?.courses[0]?.courseId;
-  const { data: activeCourse } = useCourse(activeCourseId);
   const { data: activeCourseProgress } = useCourseProgress(activeCourseId);
+  const { data: moduleStatuses } = useModuleStatus(activeCourseId);
 
   if (isLoading || !data) return <Loader />;
 
@@ -61,7 +64,6 @@ export default function DashboardPage() {
     ? Math.round(data.recentQuizScores.reduce((s, r) => s + r.score, 0) / data.recentQuizScores.length)
     : null;
   const activeSummary = data.courses.find((c) => c.courseId === activeCourseId);
-  const completedIds = new Set(activeCourseProgress?.completedLessons.map((l) => l.id) ?? []);
   const otherCourses = data.courses.filter((c) => c.courseId !== activeCourseId);
 
   return (
@@ -118,7 +120,7 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Active track */}
-      {activeSummary && activeCourse ? (
+      {activeSummary ? (
         <ScrollReveal>
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -148,45 +150,68 @@ export default function DashboardPage() {
             </div>
 
             <p className="mb-3 mt-6 text-sm font-medium text-muted">Modules in {activeSummary.title}</p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[...activeCourse.modules]
-                .sort((a, b) => a.orderIndex - b.orderIndex)
-                .map((mod, i) => {
-                  const lessons = [...mod.lessons].sort((a, b) => a.orderIndex - b.orderIndex);
-                  const status = moduleStatus(
-                    lessons.map((l) => l.id),
-                    completedIds
-                  );
-                  const nextLesson = lessons.find((l) => !completedIds.has(l.id));
-                  return (
-                    <motion.div
-                      key={mod.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05, duration: 0.4 }}
-                    >
-                      <Link
-                        href={nextLesson ? `/courses/${activeCourseId}/lessons/${nextLesson.id}` : `/courses/${activeCourseId}`}
-                        className={`flex h-full flex-col gap-2 rounded-xl border p-4 transition-colors ${
-                          status === "in_progress"
-                            ? "border-[var(--accent)] bg-[var(--accent-soft)]"
-                            : "border-border bg-surface hover:border-[var(--accent)]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-2">{lessons.length} lessons</span>
-                          <StatusChip status={status} />
-                        </div>
-                        <p className="text-sm font-medium">{mod.title}</p>
-                        {status === "in_progress" ? (
-                          <span className="mt-auto flex items-center gap-1 text-xs font-medium text-[var(--accent)]">
-                            Continue <ArrowRight className="h-3 w-3" />
-                          </span>
-                        ) : null}
-                      </Link>
-                    </motion.div>
-                  );
-                })}
+            <div className="flex flex-col gap-5">
+              {PHASE_ORDER.map((phase) => {
+                const modulesInPhase = (moduleStatuses ?? [])
+                  .filter((m) => m.phase === phase)
+                  .sort((a, b) => a.orderIndex - b.orderIndex);
+                if (modulesInPhase.length === 0) return null;
+                return (
+                  <div key={phase}>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-2">{PHASE_LABELS[phase]}</p>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      {modulesInPhase.map((mod, i) => {
+                        const status = moduleStatus(mod);
+                        const nextLesson = mod.lessons.find((l) => !l.completed);
+                        const href = mod.locked
+                          ? null
+                          : nextLesson
+                            ? `/courses/${activeCourseId}/lessons/${nextLesson.id}`
+                            : `/courses/${activeCourseId}`;
+                        const cardContent = (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-2">{mod.lessons.length} lessons</span>
+                              <StatusChip status={status} />
+                            </div>
+                            <p className="text-sm font-medium">{mod.title}</p>
+                            {status === "in_progress" ? (
+                              <span className="mt-auto flex items-center gap-1 text-xs font-medium text-[var(--accent)]">
+                                Continue <ArrowRight className="h-3 w-3" />
+                              </span>
+                            ) : null}
+                          </>
+                        );
+                        return (
+                          <motion.div
+                            key={mod.moduleId}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.05, duration: 0.4 }}
+                          >
+                            {href ? (
+                              <Link
+                                href={href}
+                                className={`flex h-full flex-col gap-2 rounded-xl border p-4 transition-colors ${
+                                  status === "in_progress"
+                                    ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                                    : "border-border bg-surface hover:border-[var(--accent)]"
+                                }`}
+                              >
+                                {cardContent}
+                              </Link>
+                            ) : (
+                              <div className="flex h-full cursor-not-allowed flex-col gap-2 rounded-xl border border-border bg-surface p-4 opacity-50">
+                                {cardContent}
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
         </ScrollReveal>
@@ -293,24 +318,19 @@ function AcceleratorCta({ targetTrackSlug, label }: { targetTrackSlug: string; l
   const router = useRouter();
   const { data: tracks } = useTracks();
   const enrollInCourse = useEnrollInCourse();
-  const createChatSession = useCreateChatSession();
 
   const targetCourse = tracks?.tracks.flatMap((t) => t.courses).find((c) => c.slug === targetTrackSlug);
   const trackName = findTrack(targetTrackSlug)?.name ?? targetTrackSlug;
-  const language = MOBILE_LANGUAGE[targetTrackSlug] ?? "";
 
   async function handleClick() {
     if (!targetCourse) return;
     await enrollInCourse.mutateAsync({ courseId: targetCourse.id });
-    await createChatSession.mutateAsync({
-      subjectArea: "programming",
-      track: targetTrackSlug,
-      learnerProfile: language ? `experienced mobile developer, new to ${language}` : undefined,
-    });
+    // No chat session is pre-warmed here — sessions are always created from a specific lesson now,
+    // and the learner lands on the course page to pick their first one.
     router.push(`/courses/${targetCourse.id}`);
   }
 
-  const isPending = enrollInCourse.isPending || createChatSession.isPending;
+  const isPending = enrollInCourse.isPending;
 
   return (
     <button
@@ -359,6 +379,13 @@ function StatusChip({ status }: { status: ModuleStatus }) {
     return (
       <span className="flex items-center gap-1 text-xs font-medium text-[var(--accent)]">
         <CircleDot className="h-3.5 w-3.5" /> In progress
+      </span>
+    );
+  }
+  if (status === "locked") {
+    return (
+      <span className="flex items-center gap-1 text-xs text-muted-2">
+        <Lock className="h-3.5 w-3.5" /> Locked
       </span>
     );
   }

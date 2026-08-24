@@ -28,6 +28,12 @@ function mapSessionError(message: string): { status: number; error: string } | n
       return { status: HTTP.CONFLICT, error: "This chat session is closed." };
     case "SESSION_BUSY":
       return { status: HTTP.CONFLICT, error: "A reply is already streaming for this session." };
+    case "LESSON_NOT_FOUND":
+      return { status: HTTP.NOT_FOUND, error: "Lesson not found." };
+    case "MODULE_NOT_FOUND":
+      return { status: HTTP.NOT_FOUND, error: "Module not found for this lesson." };
+    case "CONVERSATION_ALREADY_STARTED":
+      return { status: HTTP.CONFLICT, error: "This conversation has already started." };
     default:
       return null;
   }
@@ -71,8 +77,33 @@ export class ChatController {
       return;
     }
     const userId = (req as AuthedRequest).userId;
-    const session = await this.createChatSessionAction.execute(userId, parsed.request);
-    res.status(HTTP.CREATED).json({ success: true, data: session, error: null });
+    try {
+      const session = await this.createChatSessionAction.execute(userId, parsed.request);
+      res.status(HTTP.CREATED).json({ success: true, data: session, error: null });
+    } catch (e) {
+      const mapped = e instanceof Error ? mapSessionError(e.message) : null;
+      if (mapped) {
+        res.status(mapped.status).json({ success: false, data: null, error: mapped.error });
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async startConversation(req: Request, res: Response): Promise<void> {
+    const userId = (req as AuthedRequest).userId;
+    const { id: sessionId } = req.params;
+    try {
+      await this.sendChatMessageAction.startConversation(userId, sessionId);
+      res.status(HTTP.ACCEPTED).json({ success: true, data: null, error: null });
+    } catch (e) {
+      const mapped = e instanceof Error ? mapSessionError(e.message) : null;
+      if (mapped) {
+        res.status(mapped.status).json({ success: false, data: null, error: mapped.error });
+        return;
+      }
+      throw e;
+    }
   }
 
   async sendMessage(req: Request, res: Response): Promise<void> {

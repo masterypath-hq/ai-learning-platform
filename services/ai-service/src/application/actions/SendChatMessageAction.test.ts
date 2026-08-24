@@ -15,6 +15,11 @@ function makeSession(overrides: Partial<Parameters<typeof ChatSession.create>[0]
     track: "cybersecurity",
     topic: null,
     learnerProfile: null,
+    lessonId: null,
+    moduleId: null,
+    courseId: null,
+    lessonSnapshot: null,
+    curriculumSnapshot: [],
     summary: null,
     suggestedNextQuestions: [],
     createdAt: new Date(),
@@ -39,6 +44,7 @@ function makeChatSessionRepo(overrides: Partial<IChatSessionRepository> = {}): I
     create: jest.fn<IChatSessionRepository["create"]>(),
     findById: jest.fn<IChatSessionRepository["findById"]>().mockResolvedValue(null),
     findByUserId: jest.fn<IChatSessionRepository["findByUserId"]>(),
+    findOpenByUserAndLesson: jest.fn<IChatSessionRepository["findOpenByUserAndLesson"]>().mockResolvedValue(null),
     close: jest.fn<IChatSessionRepository["close"]>(),
     ...overrides,
   };
@@ -146,5 +152,71 @@ describe("SendChatMessageAction", () => {
       { type: "done" },
     ]);
     expect(createdMessages).toContainEqual({ role: "assistant", content: "Hello there." });
+  });
+});
+
+describe("SendChatMessageAction.startConversation", () => {
+  it("rejects starting a conversation that already has messages", async () => {
+    const chatSessionRepo = makeChatSessionRepo({
+      findById: jest.fn<IChatSessionRepository["findById"]>().mockResolvedValue(makeSession()),
+    });
+    const chatMessageRepo = makeChatMessageRepo({
+      findBySessionId: jest.fn<IChatMessageRepository["findBySessionId"]>().mockResolvedValue([makeMessage({})]),
+    });
+    const streamer: ITutorStreamer = { stream: jest.fn() as unknown as ITutorStreamer["stream"] };
+    const publisher: IChatStreamPublisher = { publish: jest.fn<IChatStreamPublisher["publish"]>() };
+
+    const action = new SendChatMessageAction(chatSessionRepo, chatMessageRepo, streamer, publisher);
+
+    await expect(action.startConversation("user-1", "session-1")).rejects.toThrow("CONVERSATION_ALREADY_STARTED");
+  });
+
+  it("streams an opening reply from a synthetic kickoff message, without persisting it as a real message", async () => {
+    const session = makeSession();
+    const chatSessionRepo = makeChatSessionRepo({
+      findById: jest.fn<IChatSessionRepository["findById"]>().mockResolvedValue(session),
+    });
+
+    const createdMessages: { role: string; content: string }[] = [];
+    const chatMessageRepo = makeChatMessageRepo({
+      create: jest.fn<IChatMessageRepository["create"]>(async (params) => {
+        createdMessages.push({ role: params.role, content: params.content });
+        return makeMessage({ id: "new", role: params.role, content: params.content });
+      }),
+      findBySessionId: jest.fn<IChatMessageRepository["findBySessionId"]>().mockResolvedValue([]),
+    });
+
+    let capturedMessages: TutorStreamerMessage[] = [];
+    const streamer: ITutorStreamer = {
+      stream: (function () {
+        async function* impl(
+          _systemPrompt: string,
+          messages: TutorStreamerMessage[]
+        ): AsyncGenerator<TutorStreamEvent> {
+          capturedMessages = messages;
+          yield { type: "text_delta", text: "Welcome! Let's dive in." };
+        }
+        return impl;
+      })(),
+    };
+
+    let resolveDone!: () => void;
+    const donePromise = new Promise<void>((resolve) => {
+      resolveDone = resolve;
+    });
+    const publisher: IChatStreamPublisher = {
+      publish: jest.fn<IChatStreamPublisher["publish"]>(async (_sessionId, event) => {
+        if (event.type === "done") resolveDone();
+      }),
+    };
+
+    const action = new SendChatMessageAction(chatSessionRepo, chatMessageRepo, streamer, publisher);
+    await action.startConversation("user-1", "session-1");
+    await donePromise;
+
+    expect(capturedMessages).toHaveLength(1);
+    expect(capturedMessages[0].role).toBe("user");
+    expect(createdMessages).toEqual([{ role: "assistant", content: "Welcome! Let's dive in." }]);
+    expect(createdMessages.some((m) => m.role === "user")).toBe(false);
   });
 });

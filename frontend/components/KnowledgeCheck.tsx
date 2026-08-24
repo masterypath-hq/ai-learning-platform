@@ -37,10 +37,15 @@ export function KnowledgeCheck({
 
   async function handleSubmit() {
     setSubmitted(true);
-    await recordCompletion.mutateAsync({ courseId, moduleId, lessonId });
+    // Only a pass marks the lesson complete — course progress and sequential unlocking key off
+    // this event, so recording it on every attempt would let an unanswered/failed check still
+    // count as "done."
     if (questions && questions.length > 0) {
       const correct = questions.filter((q) => answers[q.id] === q.correctAnswer).length;
-      if (correct / questions.length >= PASS_RATIO) onPassed?.();
+      if (correct / questions.length >= PASS_RATIO) {
+        await recordCompletion.mutateAsync({ courseId, moduleId, lessonId });
+        onPassed?.();
+      }
     }
   }
 

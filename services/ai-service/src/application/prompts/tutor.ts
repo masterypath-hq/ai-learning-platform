@@ -1,4 +1,5 @@
 import type { ChatSubjectArea, EnrolledCourse, SelfAssessmentLevel } from "@ai-learning-platform/shared";
+import type { CurriculumEntry, LessonSnapshot } from "../../domain/models/ChatSession.js";
 
 const SELF_ASSESSED_LEVEL_LABEL: Record<SelfAssessmentLevel, string> = {
   complete_beginner: "complete beginner",
@@ -55,19 +56,55 @@ Never state or imply a live/current market price, quote, or rate — you do not 
 Speak in terms of concepts, historical examples, and general mechanics instead.`,
 };
 
+function buildLessonBlock(lessonSnapshot: LessonSnapshot): string {
+  const takeaways =
+    lessonSnapshot.keyTakeaways.length > 0 ? lessonSnapshot.keyTakeaways.join("; ") : "none specified";
+  const examples =
+    lessonSnapshot.workedExampleTitles.length > 0
+      ? `\nWorked examples you can walk through: ${lessonSnapshot.workedExampleTitles.join(", ")}.`
+      : "";
+  const explanation = lessonSnapshot.explanationContent
+    ? `\nReference explanation (teach this conversationally, one idea at a time — don't paste it verbatim):\n${lessonSnapshot.explanationContent}`
+    : "";
+
+  return `\n\nCurrent lesson: "${lessonSnapshot.title}". Your job right now is to actively teach
+this lesson through conversation — explain it, ask questions, work through examples together —
+not to wait for the learner to ask about it.
+Key takeaways the learner should walk away with: ${takeaways}.${examples}${explanation}`;
+}
+
+function buildScopeBlock(lessonSnapshot: LessonSnapshot, curriculumSnapshot: CurriculumEntry[]): string {
+  const upcoming =
+    curriculumSnapshot.length > 0
+      ? ` If what they asked about matches one of these not-yet-reached topics, name which phase
+covers it instead of guessing:\n${curriculumSnapshot.map((e) => `- "${e.title}" (${e.phase} phase)`).join("\n")}`
+      : "";
+
+  return `\n\nStay in scope: you are teaching ONLY "${lessonSnapshot.title}" right now. If the
+learner asks about something outside this lesson, don't answer it directly — briefly acknowledge
+the question, explain that it's not part of this lesson, and redirect back to the current
+topic.${upcoming}`;
+}
+
 /**
  * Tutor system prompt for AI chat sessions (Stage 3). Parameterized by subject, track, and topic.
  * Level is not tracked as separate state — the model infers and adapts to it directly from the
- * conversation, per the adaptive-depth requirement below.
+ * conversation, per the adaptive-depth requirement below. `lessonSnapshot`/`curriculumSnapshot`
+ * scope the session to one lesson (null/empty only for sessions created before lesson-scoping
+ * shipped, which fall back to the older freeform behavior).
  */
 export function buildTutorSystemPrompt(
   subjectArea: ChatSubjectArea,
   track: string,
   topic: string | null,
-  learnerProfile: string | null = null
+  learnerProfile: string | null = null,
+  lessonSnapshot: LessonSnapshot | null = null,
+  curriculumSnapshot: CurriculumEntry[] = []
 ): string {
   const topicLine = topic ? `The learner asked to focus on: "${topic}".` : "";
   const trackGuidance = TRACK_GUIDANCE[track] ? `\n\n${TRACK_GUIDANCE[track]}` : "";
+  const lessonBlock = lessonSnapshot ? buildLessonBlock(lessonSnapshot) : "";
+  const scopeBlock = lessonSnapshot ? buildScopeBlock(lessonSnapshot, curriculumSnapshot) : "";
 
   const adaptiveDepth = learnerProfile
     ? `Learner profile: ${learnerProfile}. Use this upfront — don't re-teach fundamentals they
@@ -81,6 +118,7 @@ your read on their level was wrong.`;
 
   return `You are the MasteryPath AI tutor, guiding a learner through the "${track}" track
 (${subjectArea}). ${topicLine}
+${lessonBlock}
 
 ${adaptiveDepth}
 
@@ -88,7 +126,7 @@ Socratic mode: after explaining a concept, end your reply with exactly one follo
 tests whether the learner actually understood it, rather than just moving on to the next topic
 yourself. Keep explanations focused — don't lecture through an entire syllabus in one reply.
 
-${SUBJECT_GUIDANCE[subjectArea]}${trackGuidance}
+${SUBJECT_GUIDANCE[subjectArea]}${trackGuidance}${scopeBlock}
 
 Be direct and encouraging. Keep replies focused on what was asked rather than padding with
 unrelated background.`;

@@ -56,14 +56,25 @@ describe("ClaudeCourseContentGenerator.generateCourseOutline", () => {
     expect(secondCallArgs.messages[0].content).toMatch(/failed validation/i);
   });
 
-  it("throws after the retry also fails validation", async () => {
+  it("retries a second time and succeeds when the first repair attempt is still invalid", async () => {
     const invalid = { learningObjectives: [], prerequisites: [], modules: [] };
-    const client = makeClient(invalid, invalid);
+    const client = makeClient(invalid, invalid, VALID_OUTLINE);
+    const generator = new ClaudeCourseContentGenerator(client);
+
+    const result = await generator.generateCourseOutline("backend", "Backend Engineering", "desc");
+
+    expect(result.data.modules).toHaveLength(6);
+    expect(client.messages.stream).toHaveBeenCalledTimes(3);
+  });
+
+  it("throws after all repair attempts fail validation", async () => {
+    const invalid = { learningObjectives: [], prerequisites: [], modules: [] };
+    const client = makeClient(invalid, invalid, invalid);
     const generator = new ClaudeCourseContentGenerator(client);
 
     await expect(generator.generateCourseOutline("backend", "Backend Engineering", "desc")).rejects.toThrow(
-      /failed validation after retry/i
+      /failed validation after 3 attempts/i
     );
-    expect(client.messages.stream).toHaveBeenCalledTimes(2);
+    expect(client.messages.stream).toHaveBeenCalledTimes(3);
   });
 });
