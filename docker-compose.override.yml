@@ -12,3 +12,31 @@ services:
       dockerfile: services/course-service/Dockerfile.dev
     volumes:
       - ./services/course-service/src:/app/services/course-service/src
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: services/ai-service/Dockerfile.dev
+    volumes:
+      - ./services/ai-service/src:/app/services/ai-service/src
+
+  progress-service:
+    build:
+      context: .
+      dockerfile: services/progress-service/Dockerfile.dev
+    volumes:
+      - ./services/progress-service/src:/app/services/progress-service/src
+
+  assessment-service:
+    build:
+      context: .
+      dockerfile: services/assessment-service/Dockerfile.dev
+    volumes:
+      - ./services/assessment-service/src:/app/services/assessment-service/src
+
+  websocket:
+    build:
+      context: .
+      dockerfile: services/websocket/Dockerfile.dev
+    volumes:
+      - ./services/websocket/src:/app/services/websocket/src

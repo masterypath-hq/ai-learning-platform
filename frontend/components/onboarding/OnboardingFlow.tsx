@@ -1,0 +1,444 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Code2, Banknote, Check, Smartphone, Apple, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
+import type {
+  CompleteOnboardingResponse,
+  ConfidenceLevel,
+  PhaseLevel,
+  SelfAssessmentLevel,
+  TrackCourse,
+  DisplayTrack,
+} from "@ai-learning-platform/shared";
+import { groupTracksForDisplay, TRACK_CATEGORY_ORDER, TRACK_CATEGORY_LABELS } from "@ai-learning-platform/shared";
+import { useTracks } from "@/lib/queries/tracks";
+import { usePlacementQuestion, useSkills, useCompleteOnboarding, useCheckPlacementAnswer } from "@/lib/queries/courses";
+import { AuthShell } from "@/components/AuthShell";
+import { Button } from "@/components/Button";
+import { Loader } from "@/components/Loader";
+
+const FINANCE_PREVIEW_TRACKS = ["Forex Trading", "Stock Trading", "Personal Finance", "Crypto & DeFi"];
+
+const LEVELS: { value: SelfAssessmentLevel; label: string; blurb: string }[] = [
+  { value: "complete_beginner", label: "Complete beginner", blurb: "I'm brand new to this." },
+  { value: "some_exposure", label: "Some exposure", blurb: "I've dabbled a little." },
+  { value: "intermediate", label: "Intermediate", blurb: "I'm comfortable with the basics." },
+  { value: "advanced", label: "Advanced", blurb: "I want to sharpen advanced skills." },
+];
+
+const CONFIDENCE_LEVELS: { value: ConfidenceLevel; label: string }[] = [
+  { value: "never_heard", label: "Never heard of it" },
+  { value: "seen_it", label: "Seen it" },
+  { value: "used_it", label: "Used it" },
+  { value: "confident", label: "Confident" },
+];
+
+const PHASE_LABELS: Record<PhaseLevel, string> = {
+  foundation: "Foundation",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+  mastery: "Mastery",
+};
+
+type Step = 2 | 3 | 4;
+
+export function OnboardingFlow({
+  onComplete,
+  initialTrackSlug,
+  initialLevel,
+}: {
+  onComplete: (courseId: string) => void;
+  /** From the landing page's placement teaser deep-link (?track=&level=) — pre-fills but never skips a step. */
+  initialTrackSlug?: string;
+  initialLevel?: SelfAssessmentLevel;
+}) {
+  const [step, setStep] = useState<Step>(2);
+  const [subject, setSubject] = useState<"programming" | "finance">("programming");
+  const [course, setCourse] = useState<TrackCourse | null>(null);
+  const [choosingPlatform, setChoosingPlatform] = useState(false);
+  const [selfAssessedLevel, setSelfAssessedLevel] = useState<SelfAssessmentLevel | null>(initialLevel ?? null);
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [confidenceRatings, setConfidenceRatings] = useState<Record<string, ConfidenceLevel>>({});
+  const [goal, setGoal] = useState("");
+  const [result, setResult] = useState<CompleteOnboardingResponse | null>(null);
+
+  const { data: tracks, isLoading: tracksLoading } = useTracks();
+
+  useEffect(() => {
+    if (!initialTrackSlug || course) return;
+    const match = tracks?.tracks.flatMap((t) => t.courses).find((c) => c.slug === initialTrackSlug);
+    if (match) setCourse(match);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracks, initialTrackSlug]);
+  const {
+    data: placementQuestion,
+    isLoading: placementLoading,
+    isError: placementErrored,
+    refetch: refetchPlacementQuestion,
+  } = usePlacementQuestion(course?.id, selfAssessedLevel ?? undefined);
+  const { data: skillsData, isLoading: skillsLoading } = useSkills(course?.id);
+  const completeOnboarding = useCompleteOnboarding();
+  const checkAnswer = useCheckPlacementAnswer();
+
+  function selectAnswer(key: string) {
+    setAnswer(key);
+    if (placementQuestion) checkAnswer.mutate({ questionId: placementQuestion.id, answer: key });
+  }
+
+  const courses = tracks?.tracks.flatMap((t) => t.courses) ?? [];
+  const liveSlugs = new Set(courses.map((c) => c.slug));
+  const displayTracks = groupTracksForDisplay().filter(
+    (t) => t.memberTrackIds?.some((id) => liveSlugs.has(id)) ?? liveSlugs.has(t.id)
+  );
+  const tracksByCategory = TRACK_CATEGORY_ORDER.map((category) => ({
+    category,
+    tracks: displayTracks.filter((t) => t.category === category),
+  })).filter((group) => group.tracks.length > 0);
+
+  function selectDisplayTrack(track: DisplayTrack) {
+    if (track.memberTrackIds) {
+      setChoosingPlatform(true);
+      return;
+    }
+    setChoosingPlatform(false);
+    setCourse(courses.find((c) => c.slug === track.id) ?? null);
+  }
+
+  function selectPlatform(slug: "mobile-android" | "mobile-ios") {
+    setChoosingPlatform(false);
+    setCourse(courses.find((c) => c.slug === slug) ?? null);
+  }
+
+  async function handleFinish() {
+    if (!course || !selfAssessedLevel || !answer || !placementQuestion) return;
+    const enrollment = await completeOnboarding.mutateAsync({
+      courseId: course.id,
+      selfAssessedLevel,
+      questionId: placementQuestion.id,
+      answer,
+      confidenceRatings: Object.entries(confidenceRatings).map(([skillId, level]) => ({ skillId, level })),
+      goal: goal.trim() || undefined,
+    });
+    setResult(enrollment);
+  }
+
+  if (result) {
+    return (
+      <AuthShell step={{ current: 4, total: 4 }}>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
+            <span className="text-sm text-muted">You&apos;re starting at the</span>
+            <span className="font-display text-lg font-medium">{PHASE_LABELS[result.currentPhase]} level</span>
+          </div>
+
+          <div>
+            <h1 className="font-display text-2xl font-medium">{result.title}</h1>
+            <p className="mt-1 text-sm text-muted">Here&apos;s the curriculum, broken down into modules.</p>
+          </div>
+
+          <Button onClick={() => onComplete(result.courseId)}>
+            See your curriculum <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (step === 2) {
+    return (
+      <AuthShell step={{ current: 2, total: 4 }}>
+        <div className="flex flex-col gap-4">
+          <h1 className="font-display text-2xl font-medium">Choose your subject</h1>
+          <div className="grid grid-cols-2 gap-3">
+            <SubjectCard
+              icon={Banknote}
+              title="Finance & Trading"
+              blurb="Forex, stocks, crypto, options"
+              selected={subject === "finance"}
+              onClick={() => setSubject("finance")}
+            />
+            <SubjectCard
+              icon={Code2}
+              title="Programming & AI"
+              blurb="Python, web dev, AI engineering"
+              selected={subject === "programming"}
+              onClick={() => setSubject("programming")}
+            />
+          </div>
+
+          {subject === "finance" ? (
+            <div className="flex flex-col gap-2">
+              {FINANCE_PREVIEW_TRACKS.map((t) => (
+                <div
+                  key={t}
+                  className="flex items-center justify-between rounded-lg border border-dashed border-border-strong px-4 py-3 text-sm text-muted-2"
+                >
+                  {t}
+                  <span className="rounded-full bg-surface-raised px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+                    Coming soon
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : tracksLoading ? (
+            <Loader />
+          ) : choosingPlatform ? (
+            <div className="flex flex-col gap-3">
+              <button onClick={() => setChoosingPlatform(false)} className="w-fit text-xs text-muted-2 hover:text-foreground">
+                ← Back to tracks
+              </button>
+              <p className="text-sm text-muted">
+                Android (Kotlin) or iOS (Swift)? Both go fully native, no cross-platform shortcuts — pick whichever matches
+                the phone you own and the jobs you&apos;re aiming for.
+              </p>
+              <button
+                onClick={() => selectPlatform("mobile-android")}
+                className="flex items-center gap-3 rounded-lg border border-border-strong px-4 py-3 text-left text-sm transition-colors hover:border-[var(--accent)]"
+              >
+                <Smartphone className="h-5 w-5 shrink-0 text-[var(--accent)]" />
+                <div>
+                  <p className="font-medium">Android — Kotlin + Jetpack Compose</p>
+                  <p className="mt-0.5 text-xs text-muted">Largest global device share; strong job market outside the US.</p>
+                </div>
+              </button>
+              <button
+                onClick={() => selectPlatform("mobile-ios")}
+                className="flex items-center gap-3 rounded-lg border border-border-strong px-4 py-3 text-left text-sm transition-colors hover:border-[var(--accent)]"
+              >
+                <Apple className="h-5 w-5 shrink-0 text-[var(--accent)]" />
+                <div>
+                  <p className="font-medium">iOS — Swift + SwiftUI</p>
+                  <p className="mt-0.5 text-xs text-muted">Higher average pay in US/EU markets; smaller device fragmentation.</p>
+                </div>
+              </button>
+            </div>
+          ) : (
+            <div className="flex max-h-72 flex-col gap-4 overflow-y-auto">
+              {tracksByCategory.map((group) => (
+                <div key={group.category}>
+                  <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-2">
+                    {TRACK_CATEGORY_LABELS[group.category]}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {group.tracks.map((t) => {
+                      const selected = t.memberTrackIds ? !!course && t.memberTrackIds.includes(course.slug) : course?.slug === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => selectDisplayTrack(t)}
+                          className={`flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
+                            selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-border-strong hover:border-[var(--accent)]"
+                          }`}
+                        >
+                          <div>
+                            <p className="font-medium">{t.name}</p>
+                            <p className="mt-0.5 text-xs text-muted">{t.outcomeLine}</p>
+                          </div>
+                          {selected ? <Check className="h-4 w-4 shrink-0 text-[var(--accent)]" /> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Button disabled={subject !== "programming" || choosingPlatform || !course} onClick={() => setStep(3)}>
+            Choose this track
+          </Button>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (step === 3) {
+    return (
+      <AuthShell step={{ current: 3, total: 4 }}>
+        <div className="flex flex-col gap-4">
+          <h1 className="font-display text-2xl font-medium">Set your level</h1>
+          <div className="grid gap-2">
+            {LEVELS.map((l) => (
+              <button
+                key={l.value}
+                onClick={() => {
+                  setSelfAssessedLevel(l.value);
+                  setAnswer(null);
+                  checkAnswer.reset();
+                }}
+                className={`flex flex-col rounded-lg border px-4 py-2.5 text-left transition-colors ${
+                  selfAssessedLevel === l.value
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                    : "border-border-strong hover:border-[var(--accent)]"
+                }`}
+              >
+                <span className="text-sm font-medium">{l.label}</span>
+                <span className="text-xs text-muted">{l.blurb}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="onboarding-goal" className="text-sm font-medium">
+              What&apos;s your goal? <span className="font-normal text-muted-2">(optional)</span>
+            </label>
+            <input
+              id="onboarding-goal"
+              type="text"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value.slice(0, 280))}
+              placeholder="e.g. become a pentester, switch careers into backend"
+              className="rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--accent)]"
+            />
+          </div>
+
+          {selfAssessedLevel ? (
+            placementErrored ? (
+              <div className="flex flex-col items-start gap-2 rounded-lg border border-danger/30 bg-danger/5 p-4">
+                <p className="text-sm text-danger">
+                  Couldn&apos;t load a placement question for this track and level.
+                </p>
+                <Button variant="ghost" onClick={() => refetchPlacementQuestion()}>
+                  Try again
+                </Button>
+              </div>
+            ) : placementLoading || !placementQuestion ? (
+              <Loader />
+            ) : (
+              <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
+                <p className="text-sm font-medium">{placementQuestion.question}</p>
+                {placementQuestion.codeSnippet ? (
+                  <pre className="overflow-x-auto rounded-lg border border-border bg-surface-raised p-3 text-xs">
+                    <code>{placementQuestion.codeSnippet}</code>
+                  </pre>
+                ) : null}
+                <div className="grid gap-2">
+                  {(Object.entries(placementQuestion.options) as [string, string][]).map(([key, text]) => {
+                    const isSelected = answer === key;
+                    const showResult = isSelected && checkAnswer.data;
+                    const isCorrect = showResult && checkAnswer.data.correct;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => selectAnswer(key)}
+                        className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                          showResult
+                            ? isCorrect
+                              ? "border-success bg-success/10"
+                              : "border-danger bg-danger/10"
+                            : isSelected
+                              ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                              : "border-border-strong hover:border-[var(--accent)]"
+                        }`}
+                      >
+                        {text}
+                      </button>
+                    );
+                  })}
+                </div>
+                {answer && checkAnswer.isPending ? <p className="text-xs text-muted-2">Checking…</p> : null}
+                {answer && checkAnswer.data ? (
+                  <p className={`flex items-center gap-1.5 text-sm font-medium ${checkAnswer.data.correct ? "text-success" : "text-danger"}`}>
+                    {checkAnswer.data.correct ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" /> Correct!
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-4 w-4" /> Not quite — that&apos;s okay, we&apos;ll place you accordingly.
+                      </>
+                    )}
+                  </p>
+                ) : null}
+              </div>
+            )
+          ) : null}
+
+          <div className="flex justify-between">
+            <Button variant="ghost" onClick={() => setStep(2)}>
+              Back
+            </Button>
+            <Button disabled={!answer} onClick={() => setStep(4)}>
+              Continue
+            </Button>
+          </div>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  return (
+    <AuthShell step={{ current: 4, total: 4 }}>
+      <div className="flex flex-col gap-4">
+        <h1 className="font-display text-2xl font-medium">Rate your confidence</h1>
+        {skillsLoading ? (
+          <Loader />
+        ) : (
+          <div className="flex max-h-80 flex-col gap-4 overflow-y-auto">
+            {skillsData?.skills.map((skill) => (
+              <div key={skill.id}>
+                <p className="mb-2 text-sm font-medium">{skill.name}</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {CONFIDENCE_LEVELS.map((c) => (
+                    <button
+                      key={c.value}
+                      onClick={() => setConfidenceRatings((prev) => ({ ...prev, [skill.id]: c.value }))}
+                      className={`rounded-lg border px-2 py-2 text-xs ${
+                        confidenceRatings[skill.id] === c.value
+                          ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                          : "border-border-strong hover:border-[var(--accent)]"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {!skillsData?.skills.length ? <p className="text-sm text-muted">No skills to rate for this course.</p> : null}
+          </div>
+        )}
+        <div className="flex justify-between">
+          <Button variant="ghost" onClick={() => setStep(3)}>
+            Back
+          </Button>
+          <Button isLoading={completeOnboarding.isPending} onClick={handleFinish}>
+            Start course
+          </Button>
+        </div>
+      </div>
+    </AuthShell>
+  );
+}
+
+function SubjectCard({
+  icon: Icon,
+  title,
+  blurb,
+  selected,
+  onClick,
+}: {
+  icon: typeof Code2;
+  title: string;
+  blurb: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition-colors ${
+        selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-border-strong hover:border-[var(--accent)]"
+      }`}
+    >
+      {selected ? (
+        <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)]">
+          <Check className="h-3 w-3 text-[var(--accent-foreground)]" />
+        </span>
+      ) : null}
+      <Icon className="h-5 w-5 text-[var(--accent)]" />
+      <span className="text-sm font-medium">{title}</span>
+      <span className="text-xs text-muted">{blurb}</span>
+    </button>
+  );
+}

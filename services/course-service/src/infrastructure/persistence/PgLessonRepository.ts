@@ -2,7 +2,7 @@ import type { Pool } from "pg";
 import { Lesson } from "../../domain/models/Lesson.js";
 import { WorkedExample } from "../../domain/models/WorkedExample.js";
 import { PracticeExercise } from "../../domain/models/PracticeExercise.js";
-import type { ILessonRepository, LessonBundle } from "../../application/interfaces/ILessonRepository.js";
+import type { ILessonRepository, LessonBundle, LessonWithContent } from "../../application/interfaces/ILessonRepository.js";
 
 type LessonRow = {
   id: string;
@@ -11,6 +11,8 @@ type LessonRow = {
   title: string;
   content_url: string | null;
   content_type: string;
+  explanation_content: string | null;
+  key_takeaways: string[] | null;
   duration_mins: number | null;
   order_index: number;
   is_published: boolean;
@@ -45,7 +47,7 @@ export class PgLessonRepository implements ILessonRepository {
 
   async findByModuleId(moduleId: string): Promise<LessonBundle> {
     const lessonResult = await this.pool.query<LessonRow>(
-      `SELECT id, module_id, slug, title, content_url, content_type, duration_mins,
+      `SELECT id, module_id, slug, title, content_url, content_type, explanation_content, key_takeaways, duration_mins,
               order_index, is_published, is_project, project_github_required, created_at, updated_at
        FROM lessons WHERE module_id = $1 ORDER BY order_index ASC`,
       [moduleId]
@@ -77,6 +79,34 @@ export class PgLessonRepository implements ILessonRepository {
     };
   }
 
+  async findById(id: string): Promise<LessonWithContent | null> {
+    const lessonResult = await this.pool.query<LessonRow>(
+      `SELECT id, module_id, slug, title, content_url, content_type, explanation_content, key_takeaways, duration_mins,
+              order_index, is_published, is_project, project_github_required, created_at, updated_at
+       FROM lessons WHERE id = $1`,
+      [id]
+    );
+    if (lessonResult.rows.length === 0) return null;
+    const lesson = this.rowToLesson(lessonResult.rows[0]);
+
+    const weResult = await this.pool.query<WorkedExampleRow>(
+      `SELECT id, lesson_id, position, title, content, solution, created_at
+       FROM worked_examples WHERE lesson_id = $1 ORDER BY position ASC`,
+      [id]
+    );
+    const peResult = await this.pool.query<PracticeExerciseRow>(
+      `SELECT id, lesson_id, title, prompt, hints, sample_solution, created_at
+       FROM practice_exercises WHERE lesson_id = $1`,
+      [id]
+    );
+
+    return {
+      lesson,
+      workedExamples: weResult.rows.map((r) => this.rowToWorkedExample(r)),
+      practiceExercise: peResult.rows.length > 0 ? this.rowToPracticeExercise(peResult.rows[0]) : null,
+    };
+  }
+
   private rowToLesson(row: LessonRow): Lesson {
     return Lesson.create({
       id: row.id,
@@ -85,6 +115,8 @@ export class PgLessonRepository implements ILessonRepository {
       title: row.title,
       contentUrl: row.content_url,
       contentType: row.content_type,
+      explanationContent: row.explanation_content,
+      keyTakeaways: row.key_takeaways ?? [],
       durationMins: row.duration_mins,
       orderIndex: row.order_index,
       isPublished: row.is_published,

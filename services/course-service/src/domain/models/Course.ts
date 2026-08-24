@@ -8,6 +8,8 @@ export interface CourseProps {
   primaryLanguage: string | null;
   thumbnailUrl: string | null;
   durationWeeks: number | null;
+  learningObjectives: string[];
+  prerequisites: string[];
   isPublished: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -27,6 +29,8 @@ export class Course {
   get primaryLanguage(): string | null { return this.props.primaryLanguage; }
   get thumbnailUrl(): string | null { return this.props.thumbnailUrl; }
   get durationWeeks(): number | null { return this.props.durationWeeks; }
+  get learningObjectives(): string[] { return this.props.learningObjectives; }
+  get prerequisites(): string[] { return this.props.prerequisites; }
   get isPublished(): boolean { return this.props.isPublished; }
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
@@ -40,6 +44,8 @@ export class Course {
       primaryLanguage: this.props.primaryLanguage,
       thumbnailUrl: this.props.thumbnailUrl,
       durationWeeks: this.props.durationWeeks,
+      learningObjectives: this.props.learningObjectives,
+      prerequisites: this.props.prerequisites,
       isPublished: this.props.isPublished,
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),

@@ -2,13 +2,8 @@ import type { ICourseRepository } from "../interfaces/ICourseRepository.js";
 import type { IModuleRepository } from "../interfaces/IModuleRepository.js";
 import type { ILessonRepository } from "../interfaces/ILessonRepository.js";
 import type { IGetCourseAction } from "../interfaces/IGetCourseAction.js";
-import type {
-  CourseResponse,
-  ModuleResponse,
-  LessonResponse,
-  WorkedExampleResponse,
-  PracticeExerciseResponse,
-} from "@ai-learning-platform/shared";
+import { mapLessonToResponse, mapModuleToResponse } from "../mappers/courseResponseMappers.js";
+import type { CourseResponse, ModuleResponse } from "@ai-learning-platform/shared";
 
 export class GetCourseAction implements IGetCourseAction {
   constructor(
@@ -25,56 +20,17 @@ export class GetCourseAction implements IGetCourseAction {
 
     const moduleResponses: ModuleResponse[] = await Promise.all(
       modules.map(async (mod) => {
-        const { lessons, workedExamples, practiceExercises } =
-          await this.lessonRepo.findByModuleId(mod.id);
+        const { lessons, workedExamples, practiceExercises } = await this.lessonRepo.findByModuleId(mod.id);
 
-        const lessonResponses: LessonResponse[] = lessons.map((lesson) => {
-          const examples: WorkedExampleResponse[] = workedExamples
-            .filter((we) => we.lessonId === lesson.id)
-            .map((we) => ({
-              id: we.id,
-              position: we.position,
-              title: we.title,
-              content: we.content,
-              solution: we.solution,
-            }));
+        const lessonResponses = lessons.map((lesson) =>
+          mapLessonToResponse(
+            lesson,
+            workedExamples.filter((we) => we.lessonId === lesson.id),
+            practiceExercises.find((pe) => pe.lessonId === lesson.id) ?? null
+          )
+        );
 
-          const exercise = practiceExercises.find((pe) => pe.lessonId === lesson.id);
-          const practiceExercise: PracticeExerciseResponse | null = exercise
-            ? {
-                id: exercise.id,
-                title: exercise.title,
-                prompt: exercise.prompt,
-                hints: exercise.hints,
-                sampleSolution: exercise.sampleSolution,
-              }
-            : null;
-
-          return {
-            id: lesson.id,
-            slug: lesson.slug,
-            title: lesson.title,
-            contentUrl: lesson.contentUrl,
-            contentType: lesson.contentType,
-            durationMins: lesson.durationMins,
-            orderIndex: lesson.orderIndex,
-            isPublished: lesson.isPublished,
-            isProject: lesson.isProject,
-            workedExamples: examples,
-            practiceExercise,
-          };
-        });
-
-        return {
-          id: mod.id,
-          phase: mod.phase,
-          title: mod.title,
-          description: mod.description,
-          orderIndex: mod.orderIndex,
-          durationWeeks: mod.durationWeeks,
-          isPublished: mod.isPublished,
-          lessons: lessonResponses,
-        };
+        return mapModuleToResponse(mod, lessonResponses);
       })
     );
 
@@ -86,6 +42,8 @@ export class GetCourseAction implements IGetCourseAction {
       primaryLanguage: course.primaryLanguage,
       thumbnailUrl: course.thumbnailUrl,
       durationWeeks: course.durationWeeks,
+      learningObjectives: course.learningObjectives,
+      prerequisites: course.prerequisites,
       isPublished: course.isPublished,
       modules: moduleResponses,
       createdAt: course.createdAt.toISOString(),

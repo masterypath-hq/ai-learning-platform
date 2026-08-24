@@ -12,13 +12,16 @@
     "migrate:down": "node-pg-migrate down --migrations-dir db/migrations --migrations-table pgmigrations_course --envPath ../../.env",
     "migrate:create": "node-pg-migrate create --migrations-dir db/migrations --migrations-table pgmigrations_course --envPath ../../.env -j js",
     "migrate:fake": "node-pg-migrate up --fake --migrations-dir db/migrations --migrations-table pgmigrations_course --envPath ../../.env",
-    "seed:courses": "node db/seeds/courses.js"
+    "seed:courses": "node db/seeds/courses.js",
+    "seed:onboarding": "node db/seeds/onboarding.js",
+    "seed:onboarding-cybersecurity": "node db/seeds/onboarding-cybersecurity.js"
   },
   "dependencies": {
     "@ai-learning-platform/shared": "*",
     "@anthropic-ai/sdk": "^0.52.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3",
     "uuid": "^9.0.0"

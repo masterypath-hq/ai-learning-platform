@@ -18,6 +18,7 @@ import type {
 } from "@ai-learning-platform/shared";
 import type { IAuthService } from "../interfaces/IAuthService.js";
 import type { IGetMeAction } from "../interfaces/IGetMeAction.js";
+import type { IPatchMeAction } from "../interfaces/IPatchMeAction.js";
 import type { IRefreshTokensAction } from "../interfaces/IRefreshTokensAction.js";
 import type { IGoogleStateStore } from "../interfaces/IGoogleStateStore.js";
 import type { IGoogleCallbackStore } from "../interfaces/IGoogleCallbackStore.js";
@@ -38,6 +39,7 @@ export class AuthService implements IAuthService {
     private readonly forgotPasswordAction: IForgotPasswordAction,
     private readonly resetPasswordAction: IResetPasswordAction,
     private readonly getMeAction: IGetMeAction,
+    private readonly patchMeAction: IPatchMeAction,
     private readonly refreshTokensAction: IRefreshTokensAction,
     private readonly googleAuthProvider: IGoogleAuthProvider,
     private readonly googleStateStore: IGoogleStateStore,
@@ -113,6 +115,10 @@ export class AuthService implements IAuthService {
 
   async getMe(userId: string): Promise<UserProfileResponse> {
     return this.getMeAction.execute(userId);
+  }
+
+  async updateMe(userId: string, updates: { name?: string }): Promise<UserProfileResponse> {
+    return this.patchMeAction.execute(userId, updates);
   }
 
   async refreshTokens(refreshToken: string): Promise<RefreshTokensResponse> {

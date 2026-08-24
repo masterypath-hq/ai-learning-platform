@@ -1,11 +1,28 @@
-import dns from "node:dns";
-import pg from "pg";
+import Stripe from "stripe";
+import { createPgPool } from "@ai-learning-platform/shared/pg-pool";
+import type { SubscriptionProvider } from "@ai-learning-platform/shared";
 import { PgUserRepository } from "./infrastructure/persistence/PgUserRepository.js";
+import { PgWaitlistRepository } from "./infrastructure/persistence/PgWaitlistRepository.js";
+import { PgSubscriptionRepository } from "./infrastructure/persistence/PgSubscriptionRepository.js";
+import { PgProcessedWebhookEventRepository } from "./infrastructure/persistence/PgProcessedWebhookEventRepository.js";
+import { RedisTierCache } from "./infrastructure/cache/RedisTierCache.js";
+import { StripeBillingProvider } from "./infrastructure/billing/StripeBillingProvider.js";
+import { PaystackBillingProvider } from "./infrastructure/billing/PaystackBillingProvider.js";
+import type { IBillingProvider } from "./application/interfaces/IBillingProvider.js";
+import { CreateCheckoutSessionAction } from "./application/actions/CreateCheckoutSessionAction.js";
+import { CreatePortalSessionAction } from "./application/actions/CreatePortalSessionAction.js";
+import { CancelSubscriptionAction } from "./application/actions/CancelSubscriptionAction.js";
+import { HandleWebhookAction } from "./application/actions/HandleWebhookAction.js";
+import { GetSubscriptionStatusAction } from "./application/actions/GetSubscriptionStatusAction.js";
+import { BillingController } from "./interfaces/http/controllers/BillingController.js";
+import { JoinWaitlistAction } from "./application/actions/JoinWaitlistAction.js";
+import { WaitlistController } from "./interfaces/http/controllers/WaitlistController.js";
 import { PgPasswordResetTokenRepository } from "./infrastructure/persistence/PgPasswordResetTokenRepository.js";
 import { PgRefreshTokenRepository } from "./infrastructure/persistence/PgRefreshTokenRepository.js";
 import { JwtTokenService } from "./infrastructure/jwt/JwtTokenService.js";
 import { SessionTokensIssuer } from "./application/services/SessionTokensIssuer.js";
 import { GetMeAction } from "./application/actions/GetMeAction.js";
+import { PatchMeAction } from "./application/actions/PatchMeAction.js";
 import { RefreshTokensAction } from "./application/actions/RefreshTokensAction.js";
 import { RedisProfileCache } from "./infrastructure/cache/RedisProfileCache.js";
 import { getRedisClient } from "./lib/redis.js";
@@ -40,67 +57,9 @@ import { App } from "./interfaces/http/app.js";
 
 const DEFAULT_DATABASE_URL = "postgresql://auth:auth@localhost:5432/auth";
 
-function normalizeConnectionString(value: string): string {
-  let s = value.trim();
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-    s = s.slice(1, -1);
-  }
-  return s.trim();
-}
-
-/**
- * Parse postgresql:// or postgres:// URL without using URL() so passwords
- * containing @, :, #, etc. work (no URL-encoding required).
- */
-function parseConnectionString(connectionString: string): pg.PoolConfig {
-  const withoutProtocol = connectionString.replace(/^\s*postgres(ql)?:\/\//i, "").trim();
-  const atIndex = withoutProtocol.lastIndexOf("@");
-  if (atIndex === -1) {
-    return { connectionString };
-  }
-  const userPass = withoutProtocol.slice(0, atIndex);
-  const hostPortDb = withoutProtocol.slice(atIndex + 1);
-  const colonIndex = userPass.indexOf(":");
-  const user = colonIndex === -1 ? userPass : userPass.slice(0, colonIndex);
-  const password = colonIndex === -1 ? undefined : userPass.slice(colonIndex + 1);
-  const slashIndex = hostPortDb.indexOf("/");
-  const database = slashIndex === -1 ? "postgres" : hostPortDb.slice(slashIndex + 1).replace(/\?.*$/, "");
-  const hostPort = slashIndex === -1 ? hostPortDb : hostPortDb.slice(0, slashIndex);
-  const lastColon = hostPort.lastIndexOf(":");
-  const host = lastColon === -1 ? hostPort : hostPort.slice(0, lastColon);
-  const port = lastColon === -1 ? 5432 : parseInt(hostPort.slice(lastColon + 1), 10) || 5432;
-  const ssl =
-    host !== "localhost" && !host.startsWith("127.")
-      ? { rejectUnauthorized: false, servername: host }
-      : false;
-  return { user, password, host, port, database, ssl };
-}
-
-/** Use IPv4 when available so Docker (often without IPv6) can connect. Skip for pooler — use hostname as-is so tenant routing works. */
-async function resolveHostToIPv4(host: string): Promise<string> {
-  if (host === "localhost" || host.startsWith("127.")) return host;
-  if (host.includes("pooler.supabase.com")) return host;
-  try {
-    const addresses = await dns.promises.resolve4(host);
-    return addresses[0] ?? host;
-  } catch (err) {
-    const code = err && typeof err === "object" && "code" in err ? (err as NodeJS.ErrnoException).code : "";
-    if (code === "ENODATA" || code === "ENOTFOUND") {
-      console.warn(
-        `[auth-service] Host "${host}" has no IPv4 record. In Docker you may get ENETUNREACH. Use Supabase's pooler connection string (Project Settings → Database → Connection pooling) which usually has IPv4.`
-      );
-      return host;
-    }
-    throw err;
-  }
-}
-
 export async function createCompositionRoot() {
   const raw = process.env.DATABASE_URL;
-  const connectionString =
-    raw && raw.trim() !== ""
-      ? normalizeConnectionString(raw)
-      : DEFAULT_DATABASE_URL;
+  const connectionString = raw && raw.trim() !== "" ? raw : DEFAULT_DATABASE_URL;
 
   if (!raw || raw.trim() === "") {
     console.error(
@@ -108,27 +67,7 @@ export async function createCompositionRoot() {
     );
   }
 
-  const isPooler = connectionString.includes("pooler.supabase.com");
-  let pool: pg.Pool;
-
-  if (isPooler) {
-    const poolConfig = parseConnectionString(connectionString.replace(/\?.*$/, ""));
-    console.log(`[auth-service] Using Supabase pooler (parsed connection; supports @ in password)`);
-    pool = new pg.Pool({
-      user: poolConfig.user,
-      password: poolConfig.password,
-      host: poolConfig.host,
-      port: poolConfig.port,
-      database: poolConfig.database,
-      ssl: { rejectUnauthorized: false, servername: poolConfig.host as string },
-    });
-  } else {
-    const poolConfig = parseConnectionString(connectionString);
-    if (poolConfig.host) {
-      poolConfig.host = await resolveHostToIPv4(poolConfig.host);
-    }
-    pool = new pg.Pool(poolConfig);
-  }
+  const pool = await createPgPool("auth-service", connectionString);
 
   pool.query("SELECT 1").catch((err: Error) =>
     console.warn("[auth-service] DB warmup query failed:", err.message)
@@ -153,7 +92,66 @@ export async function createCompositionRoot() {
     throw new Error("REDIS_URL is required for auth-service (profile cache).");
   }
 
-  const getMeAction = new GetMeAction(userRepo, profileCache);
+  // ── Billing (Stripe + Paystack) ──────────────────────────────────
+  const subscriptionRepo = new PgSubscriptionRepository(pool);
+  const processedWebhookEventRepo = new PgProcessedWebhookEventRepository(pool);
+  const tierCache = new RedisTierCache(redis!);
+
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
+  // Stripe's SDK throws synchronously on a falsy key — fall back to a placeholder so
+  // composition (and `docker compose up`) still succeeds when billing isn't configured
+  // yet, same as the Google/GitHub OAuth providers below. Real calls fail at request time.
+  const stripe = new Stripe(stripeSecretKey || "sk_test_not_configured");
+  const stripeProvider = new StripeBillingProvider(
+    stripe,
+    process.env.STRIPE_PRICE_ID_PRO ?? "",
+    process.env.STRIPE_WEBHOOK_SECRET ?? ""
+  );
+  if (!stripeSecretKey) {
+    console.log("[auth-service] STRIPE_SECRET_KEY not set — Stripe checkout will fail until configured");
+  }
+
+  const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY ?? "";
+  const paystackProvider = new PaystackBillingProvider(
+    paystackSecretKey,
+    process.env.PAYSTACK_PLAN_CODE ?? "",
+    process.env.BILLING_SUCCESS_URL ?? "http://localhost:3000/billing/success"
+  );
+  if (!paystackSecretKey) {
+    console.log("[auth-service] PAYSTACK_SECRET_KEY not set — Paystack checkout will fail until configured");
+  }
+
+  const billingProviders: Record<SubscriptionProvider, IBillingProvider> = {
+    stripe: stripeProvider,
+    paystack: paystackProvider,
+  };
+
+  const billingSuccessUrl = process.env.BILLING_SUCCESS_URL ?? "http://localhost:3000/billing/success";
+  const billingCancelUrl = process.env.BILLING_CANCEL_URL ?? "http://localhost:3000/billing/cancel";
+  const billingPortalReturnUrl = process.env.BILLING_PORTAL_RETURN_URL ?? "http://localhost:3000/settings";
+
+  const createCheckoutSessionAction = new CreateCheckoutSessionAction(billingProviders, billingSuccessUrl, billingCancelUrl);
+  const createPortalSessionAction = new CreatePortalSessionAction(subscriptionRepo, stripeProvider, billingPortalReturnUrl);
+  const cancelSubscriptionAction = new CancelSubscriptionAction(subscriptionRepo, paystackProvider, tierCache);
+  const handleWebhookAction = new HandleWebhookAction(
+    billingProviders,
+    subscriptionRepo,
+    processedWebhookEventRepo,
+    userRepo,
+    profileCache,
+    tierCache
+  );
+  const getSubscriptionStatusAction = new GetSubscriptionStatusAction(subscriptionRepo, userRepo);
+  const billingController = new BillingController(
+    createCheckoutSessionAction,
+    createPortalSessionAction,
+    cancelSubscriptionAction,
+    handleWebhookAction,
+    getSubscriptionStatusAction
+  );
+
+  const getMeAction = new GetMeAction(userRepo, profileCache, subscriptionRepo, tierCache);
+  const patchMeAction = new PatchMeAction(userRepo, profileCache);
   const refreshTokensAction = new RefreshTokensAction(userRepo, refreshTokenRepo, sessionTokensIssuer);
   const bearerAuth = createBearerAuthMiddleware(tokenService);
   const passwordHasher = new BcryptPasswordHasher();
@@ -266,6 +264,7 @@ export async function createCompositionRoot() {
     forgotPasswordAction,
     resetPasswordAction,
     getMeAction,
+    patchMeAction,
     refreshTokensAction,
     googleAuthProvider,
     googleStateStore,
@@ -275,7 +274,12 @@ export async function createCompositionRoot() {
     githubCallbackStore
   );
   const authController = new AuthController(authService, googleRedirectFrontendUrl);
-  const app = new App(authController, bearerAuth);
+
+  const waitlistRepo = new PgWaitlistRepository(pool);
+  const joinWaitlistAction = new JoinWaitlistAction(waitlistRepo);
+  const waitlistController = new WaitlistController(joinWaitlistAction);
+
+  const app = new App(authController, bearerAuth, waitlistController, billingController);
 
   return { app, pool, emailWorker, emailQueue };
 }

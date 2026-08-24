@@ -23,6 +23,7 @@ export class AuthResource {
     this.app.post("/api/v1/auth/forgot-password", this.wrapAsync((req, res) => this.controller.forgotPassword(req, res)));
     this.app.post("/api/v1/auth/reset-password", this.wrapAsync((req, res) => this.controller.resetPassword(req, res)));
     this.app.get("/api/v1/auth/me", this.bearerAuth, this.wrapAsync((req, res) => this.controller.getMe(req, res)));
+    this.app.patch("/api/v1/auth/me", this.bearerAuth, this.wrapAsync((req, res) => this.controller.updateMe(req, res)));
   }
 
   private wrapAsync(handler: AsyncHandler) {

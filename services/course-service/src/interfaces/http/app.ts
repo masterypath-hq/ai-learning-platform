@@ -6,11 +6,17 @@ import { CourseResource } from "./resources/CourseResource.js";
 export class App {
   private readonly express: express.Express;
 
-  constructor(courseController: CourseController, authMiddleware: RequestHandler) {
+  constructor(
+    courseController: CourseController,
+    authMiddleware: RequestHandler,
+    internalServiceMiddleware: RequestHandler
+  ) {
     this.express = express();
-    this.express.use(express.json());
+    // Default 100kb is well under one module's generated lesson content (multiple lessons,
+    // each with markdown explanation, worked examples with full code, and a practice exercise).
+    this.express.use(express.json({ limit: "10mb" }));
 
-    const courseResource = new CourseResource(this.express, courseController, authMiddleware);
+    const courseResource = new CourseResource(this.express, courseController, authMiddleware, internalServiceMiddleware);
     courseResource.register();
 
     this.express.get("/health", (_req, res) => {

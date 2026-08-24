@@ -1,0 +1,274 @@
+{
+  "info": {
+    "name": "AI Learning Platform \u2014 AI API",
+    "description": "All requests go through the **API gateway** (default `http://localhost:4000`). Paths use `/api/ai/...`; the gateway strips that prefix and forwards to the ai-service.\n\n---\n\n## Collection variables\n| Variable | Default | Description |\n|---|---|---|\n| `baseUrl` | `http://localhost:4000` | Gateway URL \u2014 use this for all requests |\n| `aiServiceUrl` | `http://localhost:5002` | Direct ai-service URL \u2014 bypass gateway (debug only) |\n| `accessToken` | _(empty)_ | Paste your JWT here after sign-in via the Auth collection |\n| `sessionId` | _(empty)_ | Auto-set by the test script on Create Session |\n\n---\n\n## Streaming\nThe assistant's reply is **not** returned by `POST /chat/sessions/:id/messages` \u2014 that call\nonly persists and returns the user's message (`202 Accepted`). Tokens stream over Socket.io:\nconnect to the websocket service (default `http://localhost:4001`) with `{ auth: { token } }`,\nemit `join_session` with `{ sessionId }`, and listen for `chat_event` (`token` / `done` / `error`).\nSee `npm run ws-test -- <JWT>` at the repo root for a working example.\n\n---\n\n## Auth\nEvery endpoint requires `Authorization: Bearer {{accessToken}}`. The gateway validates the JWT\nand also enforces the free-tier daily chat limit (`FREE_TIER_DAILY_LIMIT`) on\n`POST /chat/sessions/:id/messages`. Get a token from the Auth API collection (Sign in or Sign up).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000"
+    },
+    {
+      "key": "aiServiceUrl",
+      "value": "http://localhost:5002"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "sessionId",
+      "value": ""
+    },
+    {
+      "key": "internalServiceSecret",
+      "value": ""
+    },
+    {
+      "key": "lessonId",
+      "value": ""
+    },
+    {
+      "key": "moduleId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Gateway health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health",
+            "description": "Returns `{ \"status\": \"ok\", \"service\": \"gateway\" }`.\nNo auth required."
+          }
+        },
+        {
+          "name": "AI service health (direct \u2014 debug only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{aiServiceUrl}}/health",
+            "description": "Bypasses the gateway. Use only for local debugging.\nProduction clients must always go through the gateway."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Create session \u2014 programming / cybersecurity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.data && j.data.id) pm.collectionVariables.set('sessionId', j.data.id);",
+                  "  console.log('sessionId:', j.data && j.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/ai/chat/sessions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subjectArea\": \"programming\",\n  \"track\": \"cybersecurity\",\n  \"topic\": \"getting started with defensive security\"\n}"
+            },
+            "description": "Creates a chat session. Sets `sessionId` from the response for the next requests."
+          }
+        },
+        {
+          "name": "Create session \u2014 finance / forex",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/ai/chat/sessions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subjectArea\": \"finance\",\n  \"track\": \"forex\"\n}"
+            },
+            "description": "Creates a finance-track session. Use to verify the risk-disclaimer behavior when chatting."
+          }
+        },
+        {
+          "name": "Send message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/ai/chat/sessions/{{sessionId}}/messages",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"What's the difference between a vulnerability scan and a penetration test?\"\n}"
+            },
+            "description": "Persists the user message and kicks off the Claude reply asynchronously. Returns `202` with\nthe persisted user message \u2014 the assistant's reply streams over the websocket (see collection\ndescription). Counts against the free-tier daily chat limit."
+          }
+        },
+        {
+          "name": "Close session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/ai/chat/sessions/{{sessionId}}/close",
+            "description": "Generates a 3\u20135 sentence summary and suggested next questions, marks the session closed."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Knowledge Check",
+      "item": [
+        {
+          "name": "Generate knowledge check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  console.log('questions:', j.data && j.data.questions && j.data.questions.length);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/ai/quizzes/generate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lessonId\": \"{{lessonId}}\",\n  \"type\": \"knowledge_check\"\n}"
+            },
+            "description": "Client-facing, JWT-authed, rate-limited by the gateway (5/day on free tier). Returns 3-5 MCQs WITH the answer key \u2014 safe here because knowledge checks are ungraded/formative and never persisted. Module/course-final quizzes are NOT generated on this endpoint; see the Internal folder."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal",
+      "item": [
+        {
+          "name": "Generate course content (Stage 4)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-internal-secret",
+                "value": "{{internalServiceSecret}}"
+              }
+            ],
+            "url": "{{aiServiceUrl}}/internal/courses/generate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trackSlug\": \"backend\",\n  \"title\": \"Backend Engineering\",\n  \"description\": \"Master server-side development, APIs, databases, and distributed systems.\"\n}"
+            },
+            "description": "Service-to-service only (not proxied by the gateway). Generates the full module/lesson tree for a catalog course; response.data is the payload for course-service's POST /courses/:id/content. See scripts/generate-course-catalog.ts for the full orchestration."
+          }
+        },
+        {
+          "name": "Generate module/course-final quiz (internal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-internal-secret",
+                "value": "{{internalServiceSecret}}"
+              }
+            ],
+            "url": "{{aiServiceUrl}}/internal/quizzes/generate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"moduleId\": \"{{moduleId}}\",\n  \"type\": \"module_quiz\"\n}"
+            },
+            "description": "Service-to-service only (not proxied by the gateway) \u2014 called by assessment-service when starting a module_quiz/course_final attempt, so the answer key never reaches the client raw. For course_final, send { \"courseId\": ..., \"type\": \"course_final\" } instead."
+          }
+        },
+        {
+          "name": "Grade short answers (internal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-internal-secret",
+                "value": "{{internalServiceSecret}}"
+              }
+            ],
+            "url": "{{aiServiceUrl}}/internal/quizzes/grade",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"questionId\": \"q3\",\n      \"prompt\": \"Explain closures.\",\n      \"correctAnswer\": \"must mention lexical scope\",\n      \"submittedAnswer\": \"it captures variables from its enclosing scope\"\n    }\n  ]\n}"
+            },
+            "description": "Service-to-service only. Called by assessment-service's submit-attempt flow to grade short_answer questions with one batched Claude call against a strict rubric."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -23,7 +23,10 @@ export interface GatewayConfig {
     ai: ServiceTarget;
     course: ServiceTarget;
     progress: ServiceTarget;
+    assessment: ServiceTarget;
   };
+  /** Not proxied through the gateway (clients connect directly) — used only for health aggregation. */
+  websocketUrl: string;
 }
 
 export function loadConfig(): GatewayConfig {
@@ -64,6 +67,11 @@ export function loadConfig(): GatewayConfig {
         url: process.env.PROGRESS_SERVICE_URL ?? "http://progress-service:5004",
         pathRewrite: { "^/api/progress": "" },
       },
+      assessment: {
+        url: process.env.ASSESSMENT_SERVICE_URL ?? "http://assessment-service:5005",
+        pathRewrite: { "^/api/assessments": "" },
+      },
     },
+    websocketUrl: process.env.WEBSOCKET_URL ?? "http://websocket:4001",
   };
 }

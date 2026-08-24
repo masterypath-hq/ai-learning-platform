@@ -8,6 +8,13 @@ export interface LessonBundle {
   practiceExercises: PracticeExercise[];
 }
 
+export interface LessonWithContent {
+  lesson: Lesson;
+  workedExamples: WorkedExample[];
+  practiceExercise: PracticeExercise | null;
+}
+
 export interface ILessonRepository {
   findByModuleId(moduleId: string): Promise<LessonBundle>;
+  findById(id: string): Promise<LessonWithContent | null>;
 }

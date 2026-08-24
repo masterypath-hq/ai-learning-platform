@@ -1,6 +1,9 @@
 # AI Learning Platform
 
-Monorepo for the AI-powered learning platform. See [PRD](docs/PRD.md) for product requirements.
+Monorepo for the AI-powered learning platform, built stage-by-stage per
+[`masterypath-mvp-build-prompts.md`](masterypath-mvp-build-prompts.md). See
+[`CLAUDE.md`](CLAUDE.md) for the project constitution (the actual architecture
+this repo follows — it supersedes the build-kit's original pnpm/Vite plan).
 
 ## Structure
 
@@ -8,13 +11,42 @@ Monorepo for the AI-powered learning platform. See [PRD](docs/PRD.md) for produc
 - **services/** — Backend microservices
 - **packages/shared/** — Shared contracts, types, and utilities
 
+## Local architecture
+
+```mermaid
+flowchart LR
+  Client[Frontend :3000] --> Gateway[Gateway :4000]
+  Client -. sockets .-> WS[Websocket :4001]
+  Gateway --> Auth[auth-service :3001]
+  Gateway --> Course[course-service :3003]
+  Gateway --> AI[ai-service :5002]
+  Gateway --> Progress[progress-service :5004]
+  Gateway --> Assessment[assessment-service :5005]
+  WS <-. pub/sub .-> Redis[(Redis)]
+  AI -. tokens .-> Redis
+  Gateway --> Redis
+  Auth --> Redis
+  Auth --> Supabase[(Supabase Postgres)]
+  Course --> Supabase
+  AI --> Anthropic[(Claude API)]
+```
+
+Only the frontend, gateway, and websocket service are meant to receive
+outside traffic. The rest are internal — currently published on host ports
+too, purely for local dev/testing convenience (`curl localhost:3003/health`
+etc.), same as the existing auth/course services.
+
 ## Services
 
-| Service | Description |
-|--------|-------------|
-| auth  | User authentication: sign up, sign in, forgot password, welcome email |
-| gateway | API gateway (routing, auth proxy) |
-| course | Course and lesson APIs |
+| Service | Port | Description | Status |
+|--------|------|-------------|--------|
+| auth  | 3001 | User authentication: sign up, sign in, forgot password, welcome email | Built |
+| gateway | 4000 | API gateway (JWT verification, rate limiting, routing, health aggregation) | Built |
+| course | 3003 | Course and lesson APIs | Built |
+| ai | 5002 | Chat tutor streaming + course/quiz generation (Stage 3–5) | Skeleton (health only) |
+| progress | 5004 | Dashboard, streaks, badges (Stage 6) | Skeleton (health only) |
+| assessment | 5005 | Knowledge checks, module quizzes, grading (Stage 5) | Skeleton (health only) |
+| websocket | 4001 | Socket.io + Redis adapter for AI token streaming (Stage 3) | Skeleton (health only, accepts connections) |
 
 ## Development
 
@@ -32,6 +64,10 @@ npm run dev:redis
 npm run dev:auth
 npm run dev:gateway
 npm run dev:course
+npm run dev:ai
+npm run dev:progress
+npm run dev:assessment
+npm run dev:websocket
 ```
 
 ## Environment variables
@@ -83,11 +119,13 @@ Auth-service **fails at startup** if `REDIS_URL` is missing.
 | `COURSE_SERVICE_URL` | gateway | No | `http://course-service:3003` | Course service upstream |
 | `AI_SERVICE_URL` | gateway | No | `http://ai-service:5002` | AI service upstream |
 | `PROGRESS_SERVICE_URL` | gateway | No | `http://progress-service:5004` | Progress service upstream |
+| `ASSESSMENT_SERVICE_URL` | gateway | No | `http://assessment-service:5005` | Assessment service upstream |
+| `WEBSOCKET_URL` | gateway | No | `http://websocket:4001` | Not proxied — used only by `/api/health` aggregation |
 | `FREE_TIER_DAILY_LIMIT` | gateway | No | `5` | Daily chat requests for free tier |
 | `SIGN_IN_MAX_ATTEMPTS` | gateway | No | `5` | Sign-in rate limit max attempts |
 | `SIGN_IN_WINDOW_SECONDS` | gateway | No | `900` | Sign-in rate limit window (seconds) |
-| `ANTHROPIC_API_KEY` | course | Yes (AI features) | — | Claude API for course generation |
-| `PORT` | each service | No | 3001 / 4000 / 3003 | HTTP listen port |
+| `ANTHROPIC_API_KEY` | course, ai | Yes (AI features) | — | Claude API for course generation and chat tutor |
+| `PORT` | each service | No | 3001 / 4000 / 3003 / 5002 / 5004 / 5005 / 4001 | HTTP listen port |
 
 ### Secret management (production)
 

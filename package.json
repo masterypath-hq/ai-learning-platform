@@ -12,13 +12,23 @@
     "dev:auth": "npm run dev -w @ai-learning-platform/auth-service",
     "dev:gateway": "npm run dev -w @ai-learning-platform/gateway",
     "dev:course": "npm run dev -w @ai-learning-platform/course-service",
+    "dev:ai": "npm run dev -w @ai-learning-platform/ai-service",
+    "dev:progress": "npm run dev -w @ai-learning-platform/progress-service",
+    "dev:assessment": "npm run dev -w @ai-learning-platform/assessment-service",
+    "dev:websocket": "npm run dev -w @ai-learning-platform/websocket",
+    "dev:frontend": "npm run dev -w @ai-learning-platform/frontend",
     "migrate:auth": "npm run migrate:up -w @ai-learning-platform/auth-service",
     "migrate:course": "npm run migrate:up -w @ai-learning-platform/course-service",
-    "migrate:all": "npm run migrate:auth && npm run migrate:course",
+    "migrate:ai": "npm run migrate:up -w @ai-learning-platform/ai-service",
+    "migrate:assessment": "npm run migrate:up -w @ai-learning-platform/assessment-service",
+    "migrate:progress": "npm run migrate:up -w @ai-learning-platform/progress-service",
+    "migrate:all": "npm run migrate:auth && npm run migrate:course && npm run migrate:ai && npm run migrate:assessment && npm run migrate:progress",
     "seed:courses": "npm run seed:courses -w @ai-learning-platform/course-service",
+    "generate:course-content": "tsx scripts/generate-course-catalog.ts",
     "lint:services": "eslint \"services/**/*.ts\" \"packages/**/*.ts\"",
-    "typecheck:services": "npm run build -w @ai-learning-platform/shared && npm run build -w @ai-learning-platform/auth-service && npm run build -w @ai-learning-platform/gateway && npm run build -w @ai-learning-platform/course-service",
-    "test:services": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --passWithNoTests"
+    "typecheck:services": "npm run build -w @ai-learning-platform/shared && npm run build -w @ai-learning-platform/auth-service && npm run build -w @ai-learning-platform/gateway && npm run build -w @ai-learning-platform/course-service && npm run build -w @ai-learning-platform/ai-service && npm run build -w @ai-learning-platform/progress-service && npm run build -w @ai-learning-platform/assessment-service && npm run build -w @ai-learning-platform/websocket && npm run typecheck -w @ai-learning-platform/frontend",
+    "test:services": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs --passWithNoTests",
+    "ws-test": "tsx scripts/ws-test.ts"
   },
   "engines": {
     "node": ">=24"
@@ -31,8 +41,11 @@
     "@types/jest": "^29.5.14",
     "eslint": "^9.27.0",
     "jest": "^29.7.0",
+    "socket.io-client": "^4.7.5",
     "ts-jest": "^29.3.4",
+    "tsx": "^4.6.2",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.32.1"
+    "typescript-eslint": "^8.32.1",
+    "undici": "^8.10.0"
   }
 }

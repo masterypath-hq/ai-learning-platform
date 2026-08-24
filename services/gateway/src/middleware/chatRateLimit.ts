@@ -7,9 +7,12 @@ interface RateLimitDeps {
   dailyLimit: number;
 }
 
+/** Matches `/chat/sessions/:id/messages` — the endpoint that actually calls Claude. */
+const SEND_MESSAGE_PATH = /^\/chat\/sessions\/[^/]+\/messages$/;
+
 export function createChatRateLimit({ redis, dailyLimit }: RateLimitDeps): RequestHandler {
   return async (req, res, next) => {
-    if (req.method !== "POST" || req.path !== "/chat/stream") {
+    if (req.method !== "POST" || !SEND_MESSAGE_PATH.test(req.path)) {
       next();
       return;
     }
@@ -25,7 +28,8 @@ export function createChatRateLimit({ redis, dailyLimit }: RateLimitDeps): Reque
       return;
     }
 
-    const key = `ratelimit:${user.userId}:chat`;
+    const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
+    const key = `ratelimit:${user.userId}:chat:${today}`;
 
     try {
       const count = await redis.incr(key);
